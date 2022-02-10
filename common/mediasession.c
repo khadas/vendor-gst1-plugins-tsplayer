@@ -27,12 +27,22 @@
 #include "AmTsPlayer.h"
 #include "mediasession.h"
 
+#define DEBUG
+
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+
+#ifdef DEBUG
+#define LOG(fmt, arg...) fprintf(stdout, "[mediasession] %s:%d, " \
+        fmt, __FUNCTION__, __LINE__, ##arg);
+#else
+#define LOG(fmt, arg...)
+#endif
+
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static int refcount = 0;
 static am_tsplayer_handle session = 0;
-
-#define LOG(fmt, arg...) fprintf(stdout, "[mediasession] %s:%d " \
-        fmt, __FUNCTION__, __LINE__, ##arg);
 
 int create_session(am_tsplayer_handle *session_output)
 {
@@ -43,18 +53,18 @@ int create_session(am_tsplayer_handle *session_output)
     pthread_mutex_lock(&lock);
 
     if (refcount == 0) {
-      LOG("AmTsPlayer_create now: %d\n", getpid());
-      ret = AmTsPlayer_create(param, &session);
+        LOG("AmTsPlayer_create now, pid: %d\n", getpid());
+        ret = AmTsPlayer_create(param, &session);
 
-      if (ret != AM_TSPLAYER_OK) {
-          pthread_mutex_unlock(&lock);
-          LOG("AmTsPlayer_create failed: %d\n", ret);
-          return ERROR_CODE_BASE_ERROR;
-      }
+        if (ret != AM_TSPLAYER_OK) {
+            pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_create failed: %d\n", ret);
+            return ERROR_CODE_BASE_ERROR;
+        }
 
-      // common config
-      AmTsPlayer_setWorkMode(session, TS_PLAYER_MODE_NORMAL);
-      AmTsPlayer_setSyncMode(session, TS_SYNC_AMASTER);
+        // common config
+        AmTsPlayer_setWorkMode(session, TS_PLAYER_MODE_NORMAL);
+        AmTsPlayer_setSyncMode(session, TS_SYNC_AMASTER);
     }
 
     refcount++;
@@ -62,6 +72,7 @@ int create_session(am_tsplayer_handle *session_output)
     if (session_output != NULL) {
         *session_output = session;
     }
+
     pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;
@@ -74,14 +85,14 @@ int release_session()
     pthread_mutex_lock(&lock);
 
     if (refcount == 1) {
-        LOG("AmTsPlayer_release now: %d\n", getpid());
+        LOG("AmTsPlayer_release now, pid: %d\n", getpid());
         ret = AmTsPlayer_release(session);
 
         if (ret != AM_TSPLAYER_OK) {
-          pthread_mutex_unlock(&lock);
-          LOG("AmTsPlayer_release failed: %d\n", ret);
-          return ERROR_CODE_BASE_ERROR;
-      }
+            pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_release failed: %d\n", ret);
+            return ERROR_CODE_BASE_ERROR;
+        }
     }
 
     if (refcount > 0) {
@@ -117,3 +128,8 @@ int configure_video_region(int32_t top, int32_t left,
 
     return ERROR_CODE_OK;
 }
+
+// #ifdef __cplusplus
+// }
+// #endif
+

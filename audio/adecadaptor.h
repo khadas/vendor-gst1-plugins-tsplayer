@@ -14,12 +14,12 @@
  * limitations under the License.
  *
  *  DESCRIPTION
- *      This file implements a special EQ  from Amlogic.
+ *      This file implements a special audio decoder adaptor.
  *
  */
 
-#ifndef __MEDIASESSION_H__
-#define __MEDIASESSION_H__
+#ifndef __ADECADAPTOR_H__
+#define __ADECADAPTOR_H__
 
 #include <stdint.h>
 
@@ -27,19 +27,28 @@
 // extern "C" {
 // #endif
 
-#define ERROR_CODE_OK 0
-#define ERROR_CODE_BAD_PARAMETER -1
-#define ERROR_CODE_INVALID_OPERATION -2
-#define ERROR_CODE_BASE_ERROR -3
+int init_adec();
+int deinit_adec();
 
-int create_session(am_tsplayer_handle *session_output);
-int release_session();
+int configure_adec(const char *codec);
+int set_audio_rate(double rate);
 
-int configure_video_region(int32_t top, int32_t left,
-        int32_t width, int32_t height);
+int start_adec();
+int pause_adec();
+int resume_adec();
+int flush_adec();
+int stop_adec();
+
+int decode_audio(void *data, int32_t size, uint64_t pts);
+int mute_audio(int32_t mute);
+
+int get_playing_position(int64_t *position_us);
+
+int get_volume(int32_t *volume);
+int set_volume(int32_t volume);
 
 // #ifdef __cplusplus
 // }
 // #endif
 
-#endif // __MEDIASESSION_H__
+#endif // __ADECADAPTOR_H__
