@@ -8,19 +8,12 @@ TARGET = gst_test
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
 
-CFLAGS = -Wall -Werror -fPIC -disable-static
+CFLAGS = -Wall -Werror -fPIC
 
 export PKG_CONFIG_PATH=$(TARGET_DIR)/../host/$(CROSSCOMPILE)/sysroot/usr/lib/pkgconfig
 export PKG_CONFIG=$(TARGET_DIR)/../host/bin/pkg-config
-
-CFLAGS += \
-	$(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0) \
-	-I$(TARGET_DIR)/target/usr/include
-
-LDFLAGS += \
-	$(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0) \
-	-L$(TARGET_DIR)/target/usr/lib
-
+CFLAGS += $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0 gstreamer-pbutils-1.0)
+LDFLAGS += $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0 gstreamer-pbutils-1.0)
 LDFLAGS += -lpthread
 
 # build

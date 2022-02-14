@@ -236,11 +236,6 @@ int start_adec()
         return ERROR_CODE_BASE_ERROR;
     }
 
-    // FIXME: remove this when tsplayer can play audio only.
-    am_tsplayer_video_params vparam = { AV_VIDEO_CODEC_H264, 0x100 };
-    AmTsPlayer_setVideoParams(session, &vparam);
-    AmTsPlayer_startVideoDecoding(session);
-
     pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;
@@ -337,9 +332,6 @@ int stop_adec()
         LOG("AmTsPlayer_stopAudioDecoding failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
     }
-
-    // FIXME: remove this when tsplayer can play audio only.
-    AmTsPlayer_stopVideoDecoding(session);
 
     pthread_mutex_unlock(&lock);
 

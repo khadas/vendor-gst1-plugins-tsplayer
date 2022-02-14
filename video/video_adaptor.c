@@ -126,15 +126,43 @@ int video_init()
         }
         // set tsplayer param
         ret = AmTsPlayer_setSurface(session, (void *)&tunnelid);
-        ret |= AmTsPlayer_registerCb(session, video_callback, NULL);
-        ret |= AmTsPlayer_setVideoWindow(session, DISPLAY_X, DISPLAY_Y, DISPLAY_W, DISPLAY_H);
-        ret |= AmTsPlayer_showVideo(session);
-        ret |= AmTsPlayer_setTrickMode(session, AV_VIDEO_TRICK_MODE_NONE);
         if (AM_TSPLAYER_OK != ret)
         {
             release_session();
             pthread_mutex_unlock(&lock);
             LOG("AmTsPlayer_setSurface failed: %d\n", ret);
+            return ERROR_CODE_BASE_ERROR;
+        }
+        ret = AmTsPlayer_registerCb(session, video_callback, NULL);
+        if (AM_TSPLAYER_OK != ret)
+        {
+            release_session();
+            pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_registerCb failed: %d\n", ret);
+            return ERROR_CODE_BASE_ERROR;
+        }
+        ret = AmTsPlayer_setVideoWindow(session, DISPLAY_X, DISPLAY_Y, DISPLAY_W, DISPLAY_H);
+        if (AM_TSPLAYER_OK != ret)
+        {
+            //release_session();
+            //pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_setVideoWindow failed: %d\n", ret);
+            //return ERROR_CODE_BASE_ERROR;
+        }
+        ret = AmTsPlayer_showVideo(session);
+        if (AM_TSPLAYER_OK != ret)
+        {
+            release_session();
+            pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_showVideo failed: %d\n", ret);
+            return ERROR_CODE_BASE_ERROR;
+        }
+        ret = AmTsPlayer_setTrickMode(session, AV_VIDEO_TRICK_MODE_NONE);
+        if (AM_TSPLAYER_OK != ret)
+        {
+            release_session();
+            pthread_mutex_unlock(&lock);
+            LOG("AmTsPlayer_setTrickMode failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
         }
         inited = TRUE;
@@ -162,8 +190,8 @@ int video_deinit()
         }
         inited = FALSE;
     }
-    pthread_mutex_unlock(&lock);
     in_deinit = FALSE;
+    pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;
 }
@@ -400,7 +428,7 @@ int video_write_frame(void *data, int32_t size, uint64_t pts)
     do
     {
         ret = AmTsPlayer_writeFrameData(session, &frame, WRITE_TIME_OUT_MS);
-        if (AM_TSPLAYER_ERROR_RETRY == ret)
+        if ((AM_TSPLAYER_ERROR_RETRY == ret) && (FALSE == in_deinit))
         {
             usleep(RETRY_SLEEP_TIME_US);
         }

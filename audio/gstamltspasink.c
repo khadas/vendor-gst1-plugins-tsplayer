@@ -50,6 +50,10 @@ GST_DEBUG_CATEGORY_STATIC (gst_amltspasink_debug_category);
 #define MAX_VOLUME 32
 #define DEFAULT_VOLUME 15
 
+#ifndef UNUSED
+#define UNUSED(x) (void)(x)
+#endif
+
 /* prototypes */
 
 static void gst_amltspasink_set_property (GObject * object,
@@ -111,6 +115,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     "audio/mpeg, "
     "mpegversion = (int) {2, 4}, "
     "framed = (boolean) true, "
+    "stream-format = { adts },"
     "channels = (int) [ 1, MAX ], "
     "rate = (int) [ 1, MAX ]" " ;"
 
@@ -130,8 +135,10 @@ GST_STATIC_PAD_TEMPLATE ("sink",
     "rate = (int) [ 1, MAX ]" " ;"
 
     "audio/x-raw, "
+    "format = (string) { S16LE, S16BE }, "
+    "layout = (string) interleaved, "
     "channels = (int) [ 1, MAX ], "
-    "rate = (int) [ 1, MAX ]" " ;"
+    "rate = 48000" " ;"
     )
   );
 
@@ -155,7 +162,9 @@ gst_amltspasink_class_init (GstAmltspasinkClass * klass)
     &gst_amltspasink_sink_template);
 
   gst_element_class_set_static_metadata (gstelement_class,
-    "amltspasink", "Generic", "audio sink",
+    "Audio Decoder on Tsplayer",
+    "Codec/Decoder/Audio",
+    "Audio Decoder and Render on Tsplayer",
     "biao.zhang <biao.zhang@amlogic.com>");
 
   gobject_class->set_property = gst_amltspasink_set_property;
@@ -260,7 +269,7 @@ gst_amltspasink_get_property (GObject * object, guint property_id,
       get_volume(&volume);
       GST_DEBUG_OBJECT (amltspasink, "get_property, volume: %d", volume);
 
-      g_value_set_uint(value, (int)volume);
+      g_value_set_int(value, (int)volume);
       break;
     }
     default:
@@ -281,7 +290,6 @@ gst_amltspasink_dispose (GObject * object)
   /* clean up as possible.  may be called multiple times */
 
   G_OBJECT_CLASS (gst_amltspasink_parent_class)->dispose (object);
-
   deinit_adec();
 }
 
@@ -338,6 +346,7 @@ gst_amltspasink_change_state (GstElement * element, GstStateChange transition)
     break;
     case GST_STATE_CHANGE_READY_TO_NULL:
     GST_DEBUG_OBJECT (amltspasink, "ready--->null");
+    deinit_adec();
     break;
     default:
     break;
@@ -363,6 +372,7 @@ gst_amltspasink_get_caps (GstBaseSink * sink, GstCaps * filter)
     caps = intersection;
   }
 
+  GST_INFO_OBJECT(amltspasink, "returning caps: %" GST_PTR_FORMAT, caps);
   return caps;
 
   // return GST_BASE_SINK_CLASS (gst_amltspasink_parent_class)->get_caps (sink, filter);
@@ -391,6 +401,9 @@ gst_amltspasink_set_caps (GstBaseSink * sink, GstCaps * caps)
         i, codec);
   }
   */
+  gchar *str = gst_caps_to_string(caps);
+  GST_INFO_OBJECT(amltspasink, "caps: %s", str);
+  g_free(str);
 
   structure = gst_caps_get_structure (caps, 0);
   codec = gst_structure_get_name(structure);
@@ -438,6 +451,7 @@ gst_amltspasink_fixate (GstBaseSink * sink, GstCaps * caps)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "fixate");
+  UNUSED(caps);
 
   return NULL;
 }
@@ -449,7 +463,7 @@ gst_amltspasink_activate_pull (GstBaseSink * sink, gboolean active)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "activate_pull");
-
+  UNUSED(active);
   return TRUE;
 }
 
@@ -485,9 +499,14 @@ gst_amltspasink_get_times (GstBaseSink * sink, GstBuffer * buffer,
   GstClockTime * start, GstClockTime * end)
 {
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
+  GST_DEBUG_OBJECT (amltspasink, "get_times");
+  UNUSED(buffer);
+  *start = GST_CLOCK_TIME_NONE;
+  *end = GST_CLOCK_TIME_NONE;
 
+  return;
+#if 0
   gboolean ret = TRUE;
-
   if (buffer == NULL || start == NULL || end == NULL) {
     GST_ERROR_OBJECT (amltspasink, "bad parameter!");
     return;
@@ -500,9 +519,7 @@ gst_amltspasink_get_times (GstBaseSink * sink, GstBuffer * buffer,
 
   GST_DEBUG_OBJECT (amltspasink, "get_times: %lld--->%lld",
     *start, *end);
-
-  // GST_BASE_SINK_CLASS (gst_amltspasink_parent_class)->get_times (
-  //     sink, buffer, start, end);
+#endif
 }
 
 /* propose allocation parameters for upstream */
@@ -512,6 +529,7 @@ gst_amltspasink_propose_allocation (GstBaseSink * sink, GstQuery * query)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "propose_allocation");
+  UNUSED(query);
 
   return TRUE;
 }
@@ -688,6 +706,7 @@ gst_amltspasink_prepare (GstBaseSink * sink, GstBuffer * buffer)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "prepare");
+  UNUSED(buffer);
 
   return GST_FLOW_OK;
 }
@@ -698,6 +717,7 @@ gst_amltspasink_prepare_list (GstBaseSink * sink, GstBufferList * buffer_list)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "prepare_list");
+  UNUSED(buffer_list);
 
   return GST_FLOW_OK;
 }
@@ -709,6 +729,7 @@ gst_amltspasink_preroll (GstBaseSink * sink, GstBuffer * buffer)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "preroll");
+  UNUSED(buffer);
 
   return GST_FLOW_OK;
 }
@@ -764,6 +785,7 @@ gst_amltspasink_render_list (GstBaseSink * sink, GstBufferList * buffer_list)
   GstAmltspasink *amltspasink = GST_AMLTSPASINK (sink);
 
   GST_DEBUG_OBJECT (amltspasink, "render_list");
+  UNUSED(buffer_list);
 
   return GST_FLOW_OK;
 }
@@ -786,19 +808,19 @@ plugin_init (GstPlugin * plugin)
 #define VERSION "0.0.FIXME"
 #endif
 #ifndef PACKAGE
-#define PACKAGE "FIXME_package"
+#define PACKAGE "aml_package"
 #endif
 #ifndef PACKAGE_NAME
-#define PACKAGE_NAME "FIXME_package_name"
+#define PACKAGE_NAME "aml_package"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
-#define GST_PACKAGE_ORIGIN "http://FIXME.org/"
+#define GST_PACKAGE_ORIGIN "http://amlogic.com/"
 #endif
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
   GST_VERSION_MINOR,
   amltspasink,
-  "FIXME plugin description",
+  "amltspasink",
   plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 
 G_END_DECLS

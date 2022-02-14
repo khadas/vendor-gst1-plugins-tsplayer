@@ -83,7 +83,6 @@ int release_session()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
-
     if (refcount == 1) {
         LOG("AmTsPlayer_release now, pid: %d\n", getpid());
         ret = AmTsPlayer_release(session);
