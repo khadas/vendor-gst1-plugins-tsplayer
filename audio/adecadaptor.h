@@ -23,6 +23,11 @@
 
 #include <stdint.h>
 
+#define ERROR_CODE_OK 0
+#define ERROR_CODE_BAD_PARAMETER -1
+#define ERROR_CODE_INVALID_OPERATION -2
+#define ERROR_CODE_BASE_ERROR -3
+
 // #ifdef __cplusplus
 // extern "C" {
 // #endif

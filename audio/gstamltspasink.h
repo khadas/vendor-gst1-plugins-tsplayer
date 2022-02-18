@@ -25,34 +25,38 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_AMLTSPASINK   (gst_amltspasink_get_type())
-#define GST_AMLTSPASINK(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_AMLTSPASINK,GstAmltspasink))
-#define GST_AMLTSPASINK_CLASS(klass)   (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_AMLTSPASINK,GstAmltspasinkClass))
-#define GST_IS_AMLTSPASINK(obj)   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_AMLTSPASINK))
-#define GST_IS_AMLTSPASINK_CLASS(obj)   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_AMLTSPASINK))
+#define GST_TYPE_AMLTSPASINK (gst_amltspasink_get_type())
+#define GST_AMLTSPASINK(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_AMLTSPASINK, GstAmltspasink))
+#define GST_AMLTSPASINK_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_AMLTSPASINK, GstAmltspasinkClass))
+#define GST_IS_AMLTSPASINK(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_AMLTSPASINK))
+#define GST_IS_AMLTSPASINK_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_AMLTSPASINK))
 
 typedef struct _GstAmltspasink GstAmltspasink;
 typedef struct _GstAmltspasinkClass GstAmltspasinkClass;
 
 typedef struct _GstAmltspasinkPrivate
 {
-  gdouble rate;
+    gboolean paused; /* is it paused.true:paused,false:non paused */
+    gboolean received_eos; /* is it received eos. */
+    gboolean eos; /* is it eos state */
 
+    gint vol; /* audio volume.  */
+    gboolean vol_change; /* audio volume change flag.  */
 } GstAmltspasinkPrivate;
 
 struct _GstAmltspasink
 {
-  GstBaseSink base_amltspasink;
+    GstBaseSink base_amltspasink;
 
-  GstAmltspasinkPrivate priv;
+    GstAmltspasinkPrivate priv;
 };
 
 struct _GstAmltspasinkClass
 {
-  GstBaseSinkClass base_amltspasink_class;
+    GstBaseSinkClass base_amltspasink_class;
 };
 
-GType gst_amltspasink_get_type (void);
+GType gst_amltspasink_get_type(void);
 
 G_END_DECLS
 

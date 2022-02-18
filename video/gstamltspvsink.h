@@ -36,15 +36,15 @@ typedef struct _GstAmltspvsinkPrivate GstAmltspvsinkPrivate;
 
 struct _GstAmltspvsink
 {
-  GstBaseSink base_amltspvsink;
+    GstBaseSink base_amltspvsink;
 
-  /*< private >*/
-  GstAmltspvsinkPrivate *priv;
+    /*< private >*/
+    GstAmltspvsinkPrivate *priv;
 };
 
 struct _GstAmltspvsinkClass
 {
-  GstBaseSinkClass base_amltspvsink_class;
+    GstBaseSinkClass base_amltspvsink_class;
 };
 
 GType gst_amltspvsink_get_type(void);

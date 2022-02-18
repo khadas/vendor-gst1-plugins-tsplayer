@@ -34,8 +34,7 @@
 // #endif
 
 #ifdef DEBUG
-#define LOG(fmt, arg...) fprintf(stdout, "[mediasession] %s:%d, " \
-        fmt, __FUNCTION__, __LINE__, ##arg);
+#define LOG(fmt, arg...) fprintf(stdout, "[mediasession] %s:%d, " fmt, __FUNCTION__, __LINE__, ##arg);
 #else
 #define LOG(fmt, arg...)
 #endif
@@ -47,16 +46,18 @@ static am_tsplayer_handle session = 0;
 int create_session(am_tsplayer_handle *session_output)
 {
     am_tsplayer_init_params param =
-            { ES_MEMORY, TS_INPUT_BUFFER_TYPE_NORMAL, 0, 0 };
+        {ES_MEMORY, TS_INPUT_BUFFER_TYPE_NORMAL, 0, 0};
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
 
-    if (refcount == 0) {
+    if (refcount == 0)
+    {
         LOG("AmTsPlayer_create now, pid: %d\n", getpid());
         ret = AmTsPlayer_create(param, &session);
 
-        if (ret != AM_TSPLAYER_OK) {
+        if (ret != AM_TSPLAYER_OK)
+        {
             pthread_mutex_unlock(&lock);
             LOG("AmTsPlayer_create failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
@@ -69,7 +70,8 @@ int create_session(am_tsplayer_handle *session_output)
 
     refcount++;
 
-    if (session_output != NULL) {
+    if (session_output != NULL)
+    {
         *session_output = session;
     }
 
@@ -83,18 +85,21 @@ int release_session()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
-    if (refcount == 1) {
+    if (refcount == 1)
+    {
         LOG("AmTsPlayer_release now, pid: %d\n", getpid());
         ret = AmTsPlayer_release(session);
 
-        if (ret != AM_TSPLAYER_OK) {
+        if (ret != AM_TSPLAYER_OK)
+        {
             pthread_mutex_unlock(&lock);
             LOG("AmTsPlayer_release failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
         }
     }
 
-    if (refcount > 0) {
+    if (refcount > 0)
+    {
         refcount--;
     }
 
@@ -104,20 +109,22 @@ int release_session()
 }
 
 int configure_video_region(int32_t top, int32_t left,
-        int32_t width, int32_t height)
+                           int32_t width, int32_t height)
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
 
-    if (refcount < 1) {
+    if (refcount < 1)
+    {
         pthread_mutex_unlock(&lock);
         LOG("uninitialized!\n");
         return ERROR_CODE_INVALID_OPERATION;
     }
 
     ret = AmTsPlayer_setVideoWindow(session, top, left, width, height);
-    if (ret != AM_TSPLAYER_OK) {
+    if (ret != AM_TSPLAYER_OK)
+    {
         pthread_mutex_unlock(&lock);
         LOG("AmTsPlayer_setVideoWindow failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
@@ -131,4 +138,3 @@ int configure_video_region(int32_t top, int32_t left,
 // #ifdef __cplusplus
 // }
 // #endif
-

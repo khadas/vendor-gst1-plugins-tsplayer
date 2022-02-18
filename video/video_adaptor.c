@@ -55,7 +55,6 @@ static BOOL ready = FALSE;
 /* tsplayer session */
 static am_tsplayer_handle session = 0;
 
-
 /* tsplayer callback */
 void video_callback(void *user_data, am_tsplayer_event *event)
 {
@@ -66,10 +65,10 @@ void video_callback(void *user_data, am_tsplayer_event *event)
     case AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED:
     {
         LOG("[evt] AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED: %d x %d @%d [%d]\n",
-               event->event.video_format.frame_width,
-               event->event.video_format.frame_height,
-               event->event.video_format.frame_rate,
-               event->event.video_format.frame_aspectratio);
+            event->event.video_format.frame_width,
+            event->event.video_format.frame_height,
+            event->event.video_format.frame_rate,
+            event->event.video_format.frame_aspectratio);
         break;
     }
     case AM_TSPLAYER_EVENT_TYPE_USERDATA_AFD:
@@ -78,8 +77,8 @@ void video_callback(void *user_data, am_tsplayer_event *event)
         uint8_t *pbuf = event->event.mpeg_user_data.data;
         uint32_t size = event->event.mpeg_user_data.len;
         LOG("[evt] USERDATA [%d] : %x-%x-%x-%x %x-%x-%x-%x ,size %d\n",
-               event->type, pbuf[0], pbuf[1], pbuf[2], pbuf[3],
-               pbuf[4], pbuf[5], pbuf[6], pbuf[7], size);
+            event->type, pbuf[0], pbuf[1], pbuf[2], pbuf[3],
+            pbuf[4], pbuf[5], pbuf[6], pbuf[7], size);
         break;
     }
     case AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME:
@@ -106,7 +105,6 @@ void video_callback(void *user_data, am_tsplayer_event *event)
         break;
     }
 }
-
 
 int video_init()
 {

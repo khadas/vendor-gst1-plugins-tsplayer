@@ -139,18 +139,14 @@ static GstStaticPadTemplate gst_amltspvsink_sink_template =
                             GST_STATIC_CAPS(
                                 "video/x-h264, "
                                 "stream-format={ byte-stream }, "
-                                "alignment={ au }, "
-                                COMMON_VIDEO_CAPS "; "
+                                "alignment={ au }, " COMMON_VIDEO_CAPS "; "
                                 "video/x-h265, "
                                 "stream-format={ byte-stream }, "
-                                "alignment={ au }, "
-                                COMMON_VIDEO_CAPS "; "
+                                "alignment={ au }, " COMMON_VIDEO_CAPS "; "
                                 "video/mpeg, "
                                 "mpegversion = (int) { 1, 2 }, "
-                                "systemstream = (boolean) false, "
-                                COMMON_VIDEO_CAPS "; "
-                                "image/jpeg, "
-                                COMMON_VIDEO_CAPS));
+                                "systemstream = (boolean) false, " COMMON_VIDEO_CAPS "; "
+                                "image/jpeg, " COMMON_VIDEO_CAPS));
 
 /* class initialization */
 G_DEFINE_TYPE_WITH_CODE(GstAmltspvsink, gst_amltspvsink, GST_TYPE_BASE_SINK,
@@ -354,8 +350,8 @@ void gst_amltspvsink_get_property(GObject *object, guint property_id,
     {
     case PROP_KEEPOSD:
     {
-      g_value_set_boolean(value, priv->keeposd);
-      break;
+        g_value_set_boolean(value, priv->keeposd);
+        break;
     }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -400,7 +396,7 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
         GST_OBJECT_LOCK(amltspvsink);
         if (ERROR_CODE_OK != video_init())
         {
-            GST_ERROR_OBJECT(amltspvsink, "init_vdec failed!");
+            GST_ERROR_OBJECT(amltspvsink, "video_init failed!");
             GST_OBJECT_UNLOCK(amltspvsink);
             return GST_STATE_CHANGE_FAILURE;
         }
@@ -659,7 +655,7 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
     duration = GST_BUFFER_DURATION(buffer);
     if (GST_BUFFER_PTS_IS_VALID(buffer))
     {
-        GST_DEBUG_OBJECT(amltspvsink, "dts:%llu, pts:%llu, duration:%llu!", GST_BUFFER_DTS(buffer), time, duration);
+        GST_FIXME_OBJECT(amltspvsink, "dts:%llu, pts:%llu, duration:%llu!", GST_BUFFER_DTS(buffer), time, duration);
         pts = time * 9 / 100000;
     }
 
@@ -691,7 +687,7 @@ plugin_init(GstPlugin *plugin)
 {
     /* FIXME Remember to set the rank if it's an element that is meant
      to be autoplugged by decodebin. */
-    return gst_element_register(plugin, "amltspvsink", GST_RANK_PRIMARY-1, GST_TYPE_AMLTSPVSINK);
+    return gst_element_register(plugin, "amltspvsink", GST_RANK_PRIMARY - 1, GST_TYPE_AMLTSPVSINK);
 }
 
 /* FIXME: these are normally defined by the GStreamer build system.
