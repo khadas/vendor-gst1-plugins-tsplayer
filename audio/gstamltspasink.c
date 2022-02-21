@@ -115,7 +115,7 @@ static GstStaticPadTemplate gst_amltspasink_sink_template =
                                 "channels = (int) [ 1, MAX ], "
                                 "rate = (int) [ 1, MAX ]"
                                 " ;"
-
+#if 0
                                 "audio/x-ac3, "
                                 "framed = (boolean) true, "
                                 "channels = (int) [ 1, MAX ], "
@@ -133,7 +133,7 @@ static GstStaticPadTemplate gst_amltspasink_sink_template =
                                 "channels = (int) [ 1, MAX ], "
                                 "rate = (int) [ 1, MAX ]"
                                 " ;"
-
+#endif
                                 "audio/x-raw, "
                                 "format = (string) { S16LE, S16BE }, "
                                 "layout = (string) interleaved, "
@@ -171,7 +171,7 @@ gst_amltspasink_class_init(GstAmltspasinkClass *klass)
     gobject_class->finalize = gst_amltspasink_finalize;
 
     g_object_class_install_property(gobject_class, PROP_VOLUME,
-                                    g_param_spec_int("volume", "audio volume", "get or set volume",
+                                    g_param_spec_int("volume", "audio volume", "Get or set volume",
                                                      MIN_VOLUME, MAX_VOLUME, DEFAULT_VOLUME, G_PARAM_READWRITE));
 
     gstelement_class->change_state = GST_DEBUG_FUNCPTR(gst_amltspasink_change_state);
@@ -793,8 +793,7 @@ plugin_init(GstPlugin *plugin)
 
     /* FIXME Remember to set the rank if it's an element that is meant
      to be autoplugged by decodebin. */
-    return gst_element_register(plugin, "amltspasink", GST_RANK_PRIMARY + 2,
-                                GST_TYPE_AMLTSPASINK);
+    return gst_element_register(plugin, "amltspasink", GST_RANK_NONE, GST_TYPE_AMLTSPASINK);
 }
 
 /* FIXME: these are normally defined by the GStreamer build system.

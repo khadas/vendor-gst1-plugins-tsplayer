@@ -481,13 +481,11 @@ int get_volume(int32_t *volume)
         LOG("bad parameter!\n");
         return ERROR_CODE_BAD_PARAMETER;
     }
-    LOG("enter!\n");
-    pthread_mutex_lock(&lock);
 
+    pthread_mutex_lock(&lock);
     if (initialized == 0)
     {
         pthread_mutex_unlock(&lock);
-        LOG("uninitialized!\n");
         return ERROR_CODE_INVALID_OPERATION;
     }
 
