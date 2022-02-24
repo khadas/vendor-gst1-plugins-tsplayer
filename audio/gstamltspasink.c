@@ -359,7 +359,8 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     case GST_STATE_CHANGE_READY_TO_NULL:
         GST_DEBUG_OBJECT(amltspasink, "ready--->null");
         amltspasink->priv.paused = FALSE;
-        stop_adec();
+        /* stop_adec() causes failure when audio track switch  */
+        // stop_adec();
         deinit_adec();
         break;
 

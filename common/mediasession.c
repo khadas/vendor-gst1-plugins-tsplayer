@@ -87,9 +87,11 @@ int release_session()
     pthread_mutex_lock(&lock);
     if (refcount == 1)
     {
+        /* ensure stop deocding */
+        AmTsPlayer_stopAudioDecoding(session);
+        AmTsPlayer_stopVideoDecoding(session);
         LOG("AmTsPlayer_release now, pid: %d\n", getpid());
         ret = AmTsPlayer_release(session);
-
         if (ret != AM_TSPLAYER_OK)
         {
             pthread_mutex_unlock(&lock);
