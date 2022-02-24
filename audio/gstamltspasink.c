@@ -213,6 +213,7 @@ gst_amltspasink_init(GstAmltspasink *amltspasink)
     amltspasink->priv.eos = FALSE;
     amltspasink->priv.vol = DEFAULT_VOLUME;
     amltspasink->priv.vol_change = FALSE;
+    amltspasink->priv.in_fast = FALSE;
 
     return;
 }
@@ -357,6 +358,7 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
 
     case GST_STATE_CHANGE_READY_TO_NULL:
         GST_DEBUG_OBJECT(amltspasink, "ready--->null");
+        amltspasink->priv.paused = FALSE;
         stop_adec();
         deinit_adec();
         break;
@@ -558,7 +560,6 @@ gst_amltspasink_stop(GstBaseSink *sink)
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
     GST_DEBUG_OBJECT(amltspasink, "stop");
-    stop_adec();
 
     return TRUE;
 }
@@ -656,6 +657,12 @@ gst_amltspasink_event(GstBaseSink *sink, GstEvent *event)
 
         gst_event_copy_segment(event, &segment);
         GST_FIXME_OBJECT(amltspasink, "rate--%f", segment.rate);
+        amltspasink->priv.in_fast = FALSE;
+        if (1.0 != segment.rate)
+        {
+            mute_audio(1);
+            amltspasink->priv.in_fast = TRUE;
+        }
         break;
     }
 
@@ -759,18 +766,21 @@ gst_amltspasink_render(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GstMapInfo map;
-    GstClockTime pts;
+    /* Disable decode_audio when fast forward */
+    if (FALSE == amltspasink->priv.in_fast)
+    {
+        GstMapInfo map;
+        GstClockTime pts;
+        gst_buffer_map(buffer, &map, GST_MAP_READ);
+        gst_get_pts_of_gstbuffer(sink, buffer, &pts);
 
-    gst_buffer_map(buffer, &map, GST_MAP_READ);
-    gst_get_pts_of_gstbuffer(sink, buffer, &pts);
+        GST_DEBUG_OBJECT(amltspasink, "render---size: 0x%zx, pts: %lld",
+                         map.size, pts);
+        // gst_util_dump_mem (map.data, map.size);
+        decode_audio(map.data, map.size, pts);
 
-    GST_INFO_OBJECT(amltspasink, "render---size: 0x%zx, pts: %lld",
-                    map.size, pts);
-    // gst_util_dump_mem (map.data, map.size);
-    decode_audio(map.data, map.size, pts);
-
-    gst_buffer_unmap(buffer, &map);
+        gst_buffer_unmap(buffer, &map);
+    }
 
     return GST_FLOW_OK;
 }

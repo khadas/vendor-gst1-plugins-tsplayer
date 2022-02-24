@@ -42,6 +42,8 @@ typedef struct _GstAmltspasinkPrivate
 
     gint vol; /* audio volume.  */
     gboolean vol_change; /* audio volume change flag.  */
+
+    gboolean in_fast;
 } GstAmltspasinkPrivate;
 
 struct _GstAmltspasink

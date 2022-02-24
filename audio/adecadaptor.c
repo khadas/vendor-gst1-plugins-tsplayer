@@ -37,6 +37,7 @@
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static int initialized = 0;
 static int in_deinit = 0;
+static int ready = 0;
 static am_tsplayer_handle session = 0;
 
 static uint64_t timeout_ms = 10;
@@ -260,7 +261,7 @@ int start_adec()
         LOG("AmTsPlayer_startAudioDecoding failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
     }
-
+    ready = 1;
     pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;
@@ -286,6 +287,7 @@ int pause_adec()
         LOG("AmTsPlayer_pauseAudioDecoding failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
     }
+    ready = 0;
 
     pthread_mutex_unlock(&lock);
 
@@ -312,6 +314,7 @@ int resume_adec()
         LOG("AmTsPlayer_resumeAudioDecoding failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
     }
+    ready = 1;
 
     pthread_mutex_unlock(&lock);
 
@@ -321,7 +324,7 @@ int resume_adec()
 int flush_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    // am_tsplayer_audio_params param = {AV_AUDIO_CODEC_AAC, 0x101, 0};
+
     LOG("enter!\n");
     pthread_mutex_lock(&lock);
 
@@ -332,10 +335,9 @@ int flush_adec()
         return ERROR_CODE_INVALID_OPERATION;
     }
 
-    // TODO
-    /* ret = AmTsPlayer_stopAudioDecoding(session);
-    ret |= AmTsPlayer_setAudioParams(session, &param);
-    ret |= AmTsPlayer_startAudioDecoding(session); */
+    // TODO, api not ok
+    // ret = AmTsPlayer_stopAudioDecoding(session);
+    // ret |= AmTsPlayer_startAudioDecoding(session);
     if (ret != AM_TSPLAYER_OK)
     {
         pthread_mutex_unlock(&lock);
@@ -367,6 +369,7 @@ int stop_adec()
         LOG("AmTsPlayer_stopAudioDecoding failed: %d\n", ret);
         return ERROR_CODE_BASE_ERROR;
     }
+    ready = 0;
 
     pthread_mutex_unlock(&lock);
 
@@ -378,6 +381,7 @@ int decode_audio(void *data, int32_t size, uint64_t pts)
     am_tsplayer_input_frame_buffer frame =
         {TS_INPUT_BUFFER_TYPE_NORMAL, data, size, pts, 0};
     am_tsplayer_result ret = AM_TSPLAYER_OK;
+    int retry = 100;
 
     if (data == NULL || size < 0)
     {
@@ -386,20 +390,25 @@ int decode_audio(void *data, int32_t size, uint64_t pts)
     }
 
     pthread_mutex_lock(&lock);
-    if (initialized == 0)
+    if (initialized == 0 || ready == 0)
     {
         pthread_mutex_unlock(&lock);
-        LOG("---uninitialized!\n");
+        LOG("---uninitialized or not ready!\n");
         return ERROR_CODE_INVALID_OPERATION;
     }
 
-    ret = AmTsPlayer_writeFrameData(session, &frame, timeout_ms);
-    while (ret == AM_TSPLAYER_ERROR_RETRY && in_deinit == 0)
+    do
     {
-        LOG("retry!\n");
-        usleep(sleep_us);
         ret = AmTsPlayer_writeFrameData(session, &frame, timeout_ms);
-    }
+        if ((AM_TSPLAYER_ERROR_RETRY == ret) && (0 == in_deinit))
+        {
+            usleep(sleep_us);
+        }
+        else
+        {
+            break;
+        }
+    } while ((retry-- > 0) && ret);
 
     if (ret != AM_TSPLAYER_OK)
     {
