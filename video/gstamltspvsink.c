@@ -388,6 +388,7 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(element);
     GstAmltspvsinkPrivate *priv = amltspvsink->priv;
 
+    GST_FIXME_OBJECT(amltspvsink, "change_state--%s!", gst_state_change_get_name(transition));
     switch (transition)
     {
     case GST_STATE_CHANGE_NULL_TO_READY:
@@ -411,6 +412,8 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     case GST_STATE_CHANGE_READY_TO_PAUSED:
     {
         GST_DEBUG_OBJECT(amltspvsink, "ready to paused");
+        /* set async disable when ready to paused. */
+        gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspvsink), FALSE);
         break;
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
@@ -655,7 +658,7 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
     duration = GST_BUFFER_DURATION(buffer);
     if (GST_BUFFER_PTS_IS_VALID(buffer))
     {
-        GST_FIXME_OBJECT(amltspvsink, "dts:%llu, pts:%llu, duration:%llu!", GST_BUFFER_DTS(buffer), time, duration);
+        GST_DEBUG_OBJECT(amltspvsink, "dts:%llu, pts:%llu, duration:%llu!", GST_BUFFER_DTS(buffer), time, duration);
         pts = time * 9 / 100000;
     }
 
