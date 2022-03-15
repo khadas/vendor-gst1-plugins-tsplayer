@@ -327,6 +327,7 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
 
     case GST_STATE_CHANGE_READY_TO_PAUSED:
         GST_DEBUG_OBJECT(amltspasink, "ready--->paused");
+        gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspasink), FALSE);
         break;
 
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
@@ -338,6 +339,25 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         amltspasink->priv.paused = FALSE;
         break;
 
+    case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
+    {
+        GstBaseSink *bsink = GST_BASE_SINK_CAST(amltspasink);
+        GST_DEBUG_OBJECT(amltspasink, "playing--->paused");
+        amltspasink->priv.paused = TRUE;
+        pause_adec();
+        /* To complete transition to paused state in async_enabled mode,
+         * we need a preroll buffer pushed to the pad.
+         * This is a workaround to avoid the need for preroll buffer. */
+        GST_BASE_SINK_PREROLL_LOCK(bsink);
+        bsink->have_preroll = 1;
+        GST_BASE_SINK_PREROLL_UNLOCK(bsink);
+        break;
+    }
+
+    case GST_STATE_CHANGE_PAUSED_TO_READY:
+        GST_DEBUG_OBJECT(amltspasink, "paused--->ready");
+        break;
+
     default:
         break;
     }
@@ -346,16 +366,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
 
     switch (transition)
     {
-    case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
-        GST_DEBUG_OBJECT(amltspasink, "playing--->paused");
-        amltspasink->priv.paused = TRUE;
-        pause_adec();
-        break;
-
-    case GST_STATE_CHANGE_PAUSED_TO_READY:
-        GST_DEBUG_OBJECT(amltspasink, "paused--->ready");
-        break;
-
     case GST_STATE_CHANGE_READY_TO_NULL:
         GST_DEBUG_OBJECT(amltspasink, "ready--->null");
         amltspasink->priv.paused = FALSE;
@@ -776,7 +786,6 @@ gst_amltspasink_render(GstBaseSink *sink, GstBuffer *buffer)
 
         GST_DEBUG_OBJECT(amltspasink, "render---size: 0x%zx, pts: %lld",
                          map.size, pts);
-        // gst_util_dump_mem (map.data, map.size);
         decode_audio(map.data, map.size, pts);
 
         gst_buffer_unmap(buffer, &map);
