@@ -59,8 +59,8 @@ GST_DEBUG_CATEGORY_STATIC(gst_amltspvsink_debug_category);
 #define gst_amltspvsink_parent_class parent_class
 
 #define COMMON_VIDEO_CAPS          \
-    "width = (int) [ 16, 4096 ], " \
-    "height = (int) [ 16, 4096 ] "
+    "width = (int) [ 16, 1920 ], " \
+    "height = (int) [ 16, 1920 ] "
 
 #define PTS_90K 90000
 
