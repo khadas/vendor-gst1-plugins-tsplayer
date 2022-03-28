@@ -9,7 +9,8 @@ SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
 
 CFLAGS = -Wall -Wextra -fPIC
-LDFLAGS = -lmediahal_tsplayer
+CFLAGS += -I$(STAGING_DIR)/usr/include/
+LDFLAGS = -L$(STAGING_DIR)/usr/lib/ -lmediahal_tsplayer
 
 # build
 all: $(TARGET)

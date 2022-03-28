@@ -8,12 +8,12 @@ SRCS=$(wildcard *.c)
 OBJS=$(patsubst %c, %o, $(SRCS))
 
 CFLAGS = -Wall -Wextra -fPIC
-export PKG_CONFIG_PATH=$(TARGET_DIR)/../host/$(CROSSCOMPILE)/sysroot/usr/lib/pkgconfig
-export PKG_CONFIG=$(TARGET_DIR)/../host/bin/pkg-config
 CFLAGS += $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0)
+CFLAGS += -I$(STAGING_DIR)/usr/include/
+
 LDFLAGS += $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0)
-LDFLAGS += -lmediahal_tsplayer
-LDFLAGS += -lmediasession
+LDFLAGS += -L$(STAGING_DIR)/usr/lib/ -lmediahal_tsplayer
+LDFLAGS += -L$(STAGING_DIR)/usr/lib/ -lmediasession
 
 # rules
 all: $(TARGET)

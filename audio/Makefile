@@ -9,22 +9,14 @@ SRCS = $(wildcard *.c)
 OBJS = $(patsubst %c, %o, $(SRCS))
 
 CFLAGS = -Wall -Wextra -fPIC
-
-export PKG_CONFIG_PATH=$(TARGET_DIR)/../host/$(CROSSCOMPILE)/sysroot/usr/lib/pkgconfig
-export PKG_CONFIG=$(TARGET_DIR)/../host/bin/pkg-config
-
 CFLAGS += \
 	$(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0) \
-	-I$(TARGET_DIR)/target/usr/include
+	-I$(STAGING_DIR)/usr/include/
 
 LDFLAGS += \
 	$(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0) \
-	-L$(TARGET_DIR)/target/usr/lib
-
-LDFLAGS += \
-	-lgstaudio-1.0 \
-	-lmediasession \
-	-lmediahal_tsplayer
+	-L$(STAGING_DIR)/usr/lib/ -lmediasession \
+	-L$(STAGING_DIR)/usr/lib/ -lmediahal_tsplayer
 
 # build
 all: $(TARGET)
