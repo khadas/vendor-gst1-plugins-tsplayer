@@ -37,11 +37,6 @@ typedef int BOOL;
 #define FALSE 0
 #define TRUE 1
 
-#define DISPLAY_X 0
-#define DISPLAY_Y 0
-#define DISPLAY_W 720
-#define DISPLAY_H 720
-
 #define WRITE_TIME_OUT_MS 100
 #define RETRY_SLEEP_TIME_US 50
 
@@ -138,14 +133,6 @@ int video_init()
             pthread_mutex_unlock(&lock);
             LOG("AmTsPlayer_registerCb failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
-        }
-        ret = AmTsPlayer_setVideoWindow(session, DISPLAY_X, DISPLAY_Y, DISPLAY_W, DISPLAY_H);
-        if (AM_TSPLAYER_OK != ret)
-        {
-            //release_session();
-            //pthread_mutex_unlock(&lock);
-            LOG("AmTsPlayer_setVideoWindow failed: %d\n", ret);
-            //return ERROR_CODE_BASE_ERROR;
         }
         ret = AmTsPlayer_showVideo(session);
         if (AM_TSPLAYER_OK != ret)
