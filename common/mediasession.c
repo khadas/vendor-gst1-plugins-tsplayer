@@ -65,7 +65,7 @@ int create_session(am_tsplayer_handle *session_output)
 
         // common config
         AmTsPlayer_setWorkMode(session, TS_PLAYER_MODE_NORMAL);
-        AmTsPlayer_setSyncMode(session, TS_SYNC_AMASTER);
+        AmTsPlayer_setSyncMode(session, TS_SYNC_VMASTER);
     }
 
     refcount++;
