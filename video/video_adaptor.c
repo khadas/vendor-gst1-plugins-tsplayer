@@ -28,6 +28,10 @@
 #include "mediasession.h"
 #include "video_adaptor.h"
 
+#ifdef HAVE_SYSTEMD_DAEMON
+#include <systemd/sd-daemon.h>
+#endif
+
 typedef int BOOL;
 
 #ifndef UNUSED
@@ -79,6 +83,9 @@ void video_callback(void *user_data, am_tsplayer_event *event)
     case AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME:
     {
         LOG("[evt] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME\n");
+        #ifdef HAVE_SYSTEMD_DAEMON
+        sd_notify(0, "READY=1");
+        #endif
         break;
     }
     case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO:
