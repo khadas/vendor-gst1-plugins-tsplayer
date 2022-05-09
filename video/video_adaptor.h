@@ -22,6 +22,7 @@
 #define __VIDEO_ADAPTOR_H__
 
 #include <stdint.h>
+#include "AmTsPlayer.h"
 
 #define ERROR_CODE_OK 0
 #define ERROR_CODE_BAD_PARAMETER -1
@@ -31,6 +32,8 @@
 int video_init();
 
 int video_deinit();
+
+int video_register_callback(event_callback pfunc, void *param);
 
 int video_set_codec(const char *codec, int version);
 

@@ -102,6 +102,13 @@ enum
     PROP_KEEPOSD
 };
 
+enum
+{
+    SIGNAL_FIRSTFRAME,
+    MAX_SIGNAL
+};
+static guint g_signals[MAX_SIGNAL] = {0};
+
 /* prototypes */
 static void gst_amltspvsink_set_property(GObject *object, guint property_id,
                                          const GValue *value, GParamSpec *pspec);
@@ -193,6 +200,60 @@ static void keeposd(gboolean blank)
     return;
 }
 
+/* video_adaptor callback base on AmTsPlayer */
+void video_callback(void *user_data, am_tsplayer_event *event)
+{
+    GstAmltspvsink *amltspvsink = (GstAmltspvsink *)user_data;
+
+    GST_INFO_OBJECT(amltspvsink, "video_callback type %d\n", event ? event->type : 0);
+    switch (event->type)
+    {
+    case AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED:
+    {
+        GST_INFO_OBJECT(amltspvsink, "[evt] AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED: %d x %d @%d [%d]\n",
+                        event->event.video_format.frame_width,
+                        event->event.video_format.frame_height,
+                        event->event.video_format.frame_rate,
+                        event->event.video_format.frame_aspectratio);
+        break;
+    }
+    case AM_TSPLAYER_EVENT_TYPE_USERDATA_AFD:
+    case AM_TSPLAYER_EVENT_TYPE_USERDATA_CC:
+    {
+        uint8_t *pbuf = event->event.mpeg_user_data.data;
+        uint32_t size = event->event.mpeg_user_data.len;
+        GST_INFO_OBJECT(amltspvsink, "[evt] USERDATA [%d] : %x-%x-%x-%x %x-%x-%x-%x ,size %d\n",
+                        event->type, pbuf[0], pbuf[1], pbuf[2], pbuf[3],
+                        pbuf[4], pbuf[5], pbuf[6], pbuf[7], size);
+        break;
+    }
+    case AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME:
+    {
+        GST_INFO_OBJECT(amltspvsink, "[evt] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME\n");
+        g_signal_emit(G_OBJECT(amltspvsink), g_signals[SIGNAL_FIRSTFRAME], 0, 2, NULL);
+        keeposd(amltspvsink->priv->keeposd);
+        break;
+    }
+    case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO:
+    {
+        GST_INFO_OBJECT(amltspvsink, "[evt] AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO\n");
+        break;
+    }
+    case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_AUDIO:
+    {
+        GST_INFO_OBJECT(amltspvsink, "[evt] AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_AUDIO\n");
+        break;
+    }
+    case AM_TSPLAYER_EVENT_TYPE_AV_SYNC_DONE:
+    {
+        GST_INFO_OBJECT(amltspvsink, "[evt] AM_TSPLAYER_EVENT_TYPE_AV_SYNC_DONE\n");
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 #ifdef DUMP_TO_FILE
 static uint8_t ivf_header[32] = {
     'D', 'K', 'I', 'F',
@@ -272,6 +333,18 @@ gst_amltspvsink_class_init(GstAmltspvsinkClass *klass)
                                     g_param_spec_boolean("keeposd", "keeposd",
                                                          "Whether to keep OSD during playback",
                                                          FALSE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_signals[SIGNAL_FIRSTFRAME] = g_signal_new("first-video-frame-callback",
+                                                G_TYPE_FROM_CLASS(GST_ELEMENT_CLASS(klass)),
+                                                (GSignalFlags)(G_SIGNAL_RUN_LAST),
+                                                0,    /* class offset */
+                                                NULL, /* accumulator */
+                                                NULL, /* accu data */
+                                                g_cclosure_marshal_VOID__UINT_POINTER,
+                                                G_TYPE_NONE,
+                                                2,
+                                                G_TYPE_UINT,
+                                                G_TYPE_POINTER);
 
     return;
 }
@@ -401,6 +474,12 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
             GST_OBJECT_UNLOCK(amltspvsink);
             return GST_STATE_CHANGE_FAILURE;
         }
+        if (ERROR_CODE_OK != video_register_callback(video_callback, (void *)amltspvsink))
+        {
+            GST_ERROR_OBJECT(amltspvsink, "video_register_callback failed!");
+            GST_OBJECT_UNLOCK(amltspvsink);
+            return GST_STATE_CHANGE_FAILURE;
+        }
         if (TRUE == priv->setwindow)
         {
             video_set_region(priv->disp_x, priv->disp_y, priv->disp_w, priv->disp_h);
@@ -420,7 +499,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     {
         GST_DEBUG_OBJECT(amltspvsink, "paused to playing");
         GST_OBJECT_LOCK(amltspvsink);
-        keeposd(priv->keeposd);
         if (TRUE == priv->paused)
         {
             video_resume();
@@ -623,7 +701,7 @@ gst_amltspvsink_query(GstBaseSink *sink, GstQuery *query)
     gboolean res = TRUE;
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
 
-    GST_DEBUG_OBJECT(amltspvsink, "query");
+    GST_FIXME_OBJECT(amltspvsink, "query--%s", GST_QUERY_TYPE_NAME(query));
 
     res = GST_BASE_SINK_CLASS(parent_class)->query(sink, query);
 

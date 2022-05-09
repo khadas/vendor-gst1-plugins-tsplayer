@@ -28,10 +28,6 @@
 #include "mediasession.h"
 #include "video_adaptor.h"
 
-#ifdef HAVE_SYSTEMD_DAEMON
-#include <systemd/sd-daemon.h>
-#endif
-
 typedef int BOOL;
 
 #ifndef UNUSED
@@ -53,60 +49,6 @@ static BOOL in_deinit = FALSE;
 static BOOL ready = FALSE;
 /* tsplayer session */
 static am_tsplayer_handle session = 0;
-
-/* tsplayer callback */
-void video_callback(void *user_data, am_tsplayer_event *event)
-{
-    UNUSED(user_data);
-    LOG("video_callback type %d\n", event ? event->type : 0);
-    switch (event->type)
-    {
-    case AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED:
-    {
-        LOG("[evt] AM_TSPLAYER_EVENT_TYPE_VIDEO_CHANGED: %d x %d @%d [%d]\n",
-            event->event.video_format.frame_width,
-            event->event.video_format.frame_height,
-            event->event.video_format.frame_rate,
-            event->event.video_format.frame_aspectratio);
-        break;
-    }
-    case AM_TSPLAYER_EVENT_TYPE_USERDATA_AFD:
-    case AM_TSPLAYER_EVENT_TYPE_USERDATA_CC:
-    {
-        uint8_t *pbuf = event->event.mpeg_user_data.data;
-        uint32_t size = event->event.mpeg_user_data.len;
-        LOG("[evt] USERDATA [%d] : %x-%x-%x-%x %x-%x-%x-%x ,size %d\n",
-            event->type, pbuf[0], pbuf[1], pbuf[2], pbuf[3],
-            pbuf[4], pbuf[5], pbuf[6], pbuf[7], size);
-        break;
-    }
-    case AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME:
-    {
-        LOG("[evt] AM_TSPLAYER_EVENT_TYPE_FIRST_FRAME\n");
-        #ifdef HAVE_SYSTEMD_DAEMON
-        sd_notify(0, "READY=1");
-        #endif
-        break;
-    }
-    case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO:
-    {
-        LOG("[evt] AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_VIDEO\n");
-        break;
-    }
-    case AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_AUDIO:
-    {
-        LOG("[evt] AM_TSPLAYER_EVENT_TYPE_DECODE_FIRST_FRAME_AUDIO\n");
-        break;
-    }
-    case AM_TSPLAYER_EVENT_TYPE_AV_SYNC_DONE:
-    {
-        LOG("[evt] AM_TSPLAYER_EVENT_TYPE_AV_SYNC_DONE\n");
-        break;
-    }
-    default:
-        break;
-    }
-}
 
 int video_init()
 {
@@ -131,14 +73,6 @@ int video_init()
             release_session();
             pthread_mutex_unlock(&lock);
             LOG("AmTsPlayer_setSurface failed: %d\n", ret);
-            return ERROR_CODE_BASE_ERROR;
-        }
-        ret = AmTsPlayer_registerCb(session, video_callback, NULL);
-        if (AM_TSPLAYER_OK != ret)
-        {
-            release_session();
-            pthread_mutex_unlock(&lock);
-            LOG("AmTsPlayer_registerCb failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
         }
         ret = AmTsPlayer_showVideo(session);
@@ -183,6 +117,30 @@ int video_deinit()
         inited = FALSE;
     }
     in_deinit = FALSE;
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
+int video_register_callback(event_callback pfunc, void *param)
+{
+    int ret = 0;
+
+    pthread_mutex_lock(&lock);
+    if (FALSE == inited)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    ret = AmTsPlayer_registerCb(session, pfunc, param);
+    if (AM_TSPLAYER_OK != ret)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer_registerCb failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
     pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;
