@@ -41,7 +41,11 @@ typedef struct _GstAmltspasinkPrivate
     gboolean eos; /* is it eos state */
 
     gint vol; /* audio volume.  */
-    gboolean vol_change; /* audio volume change flag.  */
+    gboolean vol_pending; /* set volume pending flag  */
+
+    gboolean mute; /* mute */
+    gboolean mute_pending; /* set mute pending flag */
+    gint vol_bak; /* backup volume before mute*/
 
     gboolean in_fast;
 } GstAmltspasinkPrivate;

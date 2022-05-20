@@ -47,8 +47,8 @@ GST_DEBUG_CATEGORY_STATIC(gst_amltspasink_debug_category);
 #define GST_CAT_DEFAULT gst_amltspasink_debug_category
 
 #define MIN_VOLUME 0
-#define MAX_VOLUME 32
-#define DEFAULT_VOLUME 15
+#define MAX_VOLUME 100
+#define DEFAULT_VOLUME 30
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
@@ -92,6 +92,7 @@ enum
 {
     PROP_0,
     PROP_VOLUME,
+    PROP_MUTE,
 };
 
 /* pad templates */
@@ -171,8 +172,11 @@ gst_amltspasink_class_init(GstAmltspasinkClass *klass)
     gobject_class->finalize = gst_amltspasink_finalize;
 
     g_object_class_install_property(gobject_class, PROP_VOLUME,
-                                    g_param_spec_int("volume", "audio volume", "Get or set volume",
+                                    g_param_spec_int("volume", "Stream Volume", "Get or set volume",
                                                      MIN_VOLUME, MAX_VOLUME, DEFAULT_VOLUME, G_PARAM_READWRITE));
+    g_object_class_install_property(gobject_class, PROP_MUTE,
+                                    g_param_spec_boolean("mute", "Mute", "Mute state of system",
+                                                         FALSE, G_PARAM_READWRITE));
 
     gstelement_class->change_state = GST_DEBUG_FUNCPTR(gst_amltspasink_change_state);
 
@@ -212,7 +216,10 @@ gst_amltspasink_init(GstAmltspasink *amltspasink)
     amltspasink->priv.received_eos = FALSE;
     amltspasink->priv.eos = FALSE;
     amltspasink->priv.vol = DEFAULT_VOLUME;
-    amltspasink->priv.vol_change = FALSE;
+    amltspasink->priv.vol_pending = TRUE;
+    amltspasink->priv.mute = FALSE;
+    amltspasink->priv.mute_pending = FALSE;
+    amltspasink->priv.vol_bak = DEFAULT_VOLUME;
     amltspasink->priv.in_fast = FALSE;
 
     return;
@@ -223,7 +230,7 @@ void gst_amltspasink_set_property(GObject *object, guint property_id,
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(object);
 
-    GST_DEBUG_OBJECT(amltspasink, "get_property");
+    GST_DEBUG_OBJECT(amltspasink, "set_property, %d!", property_id);
 
     switch (property_id)
     {
@@ -239,7 +246,41 @@ void gst_amltspasink_set_property(GObject *object, guint property_id,
         volume = (int32_t)g_value_get_int(value);
         GST_FIXME_OBJECT(amltspasink, "set_property, volume: %d", volume);
         amltspasink->priv.vol = volume;
-        amltspasink->priv.vol_change = TRUE;
+        if (ERROR_CODE_OK != set_volume(volume))
+        {
+            amltspasink->priv.vol_pending = TRUE;
+        }
+        break;
+    }
+    case PROP_MUTE:
+    {
+        gboolean mute = FALSE;
+        int volume = 0;
+
+        if (value == NULL)
+        {
+            GST_ERROR_OBJECT(amltspasink, "bad parameter!");
+            break;
+        }
+        mute = g_value_get_boolean(value);
+        GST_FIXME_OBJECT(amltspasink, "set_property, mute: %d", mute);
+        if (mute != amltspasink->priv.mute)
+        {
+            amltspasink->priv.mute = mute;
+            if (amltspasink->priv.mute)
+            {
+                amltspasink->priv.vol_bak = amltspasink->priv.vol;
+                volume = 0;
+            }
+            else
+            {
+                volume = amltspasink->priv.vol_bak;
+            }
+            if (ERROR_CODE_OK != set_volume(volume))
+            {
+                amltspasink->priv.mute_pending = TRUE;
+            }
+        }
         break;
     }
     default:
@@ -255,7 +296,7 @@ void gst_amltspasink_get_property(GObject *object, guint property_id,
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(object);
 
-    GST_DEBUG_OBJECT(amltspasink, "set_property");
+    GST_DEBUG_OBJECT(amltspasink, "get_property, id:%d!", property_id);
 
     switch (property_id)
     {
@@ -269,8 +310,17 @@ void gst_amltspasink_get_property(GObject *object, guint property_id,
             break;
         }
         get_volume(&volume);
-        GST_DEBUG_OBJECT(amltspasink, "get_property, volume: %d", volume);
         g_value_set_int(value, (int)volume);
+        break;
+    }
+    case PROP_MUTE:
+    {
+        if (value == NULL)
+        {
+            GST_ERROR_OBJECT(amltspasink, "bad parameter!");
+            break;
+        }
+        g_value_set_boolean(value, amltspasink->priv.mute);
         break;
     }
     default:
@@ -318,10 +368,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         {
             GST_ERROR_OBJECT(amltspasink, "init_adec failed!");
             return GST_STATE_CHANGE_FAILURE;
-        }
-        if (TRUE == amltspasink->priv.vol_change)
-        {
-            set_volume(amltspasink->priv.vol);
         }
         break;
 
@@ -472,6 +518,23 @@ gst_amltspasink_set_caps(GstBaseSink *sink, GstCaps *caps)
     GST_DEBUG_OBJECT(amltspasink, "set_caps, codec: %s", codec);
     configure_adec(codec);
     start_adec();
+    if (TRUE == amltspasink->priv.vol_pending)
+    {
+        amltspasink->priv.vol_pending = FALSE;
+        set_volume(amltspasink->priv.vol);
+    }
+    if (TRUE == amltspasink->priv.mute_pending)
+    {
+        amltspasink->priv.mute_pending = FALSE;
+        if (TRUE == amltspasink->priv.mute)
+        {
+            set_volume(0);
+        }
+        else
+        {
+            set_volume(amltspasink->priv.vol_bak);
+        }
+    }
 
     return TRUE;
 }
