@@ -56,6 +56,7 @@ int video_init()
     int tunnelid = 0;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         // create session
@@ -104,6 +105,7 @@ int video_deinit()
     in_deinit = TRUE;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (TRUE == inited)
     {
         ret = release_session();
@@ -127,6 +129,7 @@ int video_register_callback(event_callback pfunc, void *param)
     int ret = 0;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -209,8 +212,8 @@ int video_set_codec(const char *codec, int version)
     am_tsplayer_video_params param = {codec_enum, 0x100};
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
-    LOG("codec_enum:%d!\n", codec_enum);
     pthread_mutex_lock(&lock);
+    LOG("enter, codec_enum:%d!\n", codec_enum);
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -235,6 +238,7 @@ int video_set_region(int32_t x, int32_t y, int32_t w, int32_t h)
     int ret = 0;
 
     pthread_mutex_lock(&lock);
+    LOG("enter, x:%d,y:%d,w:%d,h:%d!\n", x, y, w, h);
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -259,6 +263,7 @@ int video_start()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -284,6 +289,7 @@ int video_pause()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -309,6 +315,7 @@ int video_resume()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -334,6 +341,7 @@ int video_stop()
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);

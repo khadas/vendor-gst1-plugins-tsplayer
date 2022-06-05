@@ -53,8 +53,8 @@ int init_adec()
 {
     int ret = ERROR_CODE_OK;
 
-    LOG("enter!\n");
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -78,8 +78,9 @@ int deinit_adec()
 {
     in_deinit = 1;
     int ret = ERROR_CODE_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized != 0)
     {
@@ -193,8 +194,8 @@ int configure_adec(const char *codec)
     am_tsplayer_audio_params param = {codec_enum, 0x101, 0};
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
-    LOG("enter!\n");
     pthread_mutex_lock(&lock);
+    LOG("enter, codec_enum:%d!\n", codec_enum);
 
     if (initialized == 0)
     {
@@ -219,8 +220,9 @@ int configure_adec(const char *codec)
 int set_audio_rate(double rate)
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter, rate:%f!\n", rate);
 
     if (initialized == 0)
     {
@@ -245,8 +247,9 @@ int set_audio_rate(double rate)
 int start_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -271,8 +274,9 @@ int start_adec()
 int pause_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -298,8 +302,9 @@ int pause_adec()
 int resume_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -326,8 +331,8 @@ int flush_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
-    LOG("enter!\n");
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -353,8 +358,9 @@ int flush_adec()
 int stop_adec()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -426,8 +432,9 @@ int decode_audio(void *data, int32_t size, uint64_t pts)
 int mute_audio(int32_t mute)
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter, mute:%d!\n", mute);
 
     if (initialized == 0)
     {
@@ -459,8 +466,9 @@ int get_playing_position(int64_t *position_us)
         LOG("bad parameter!\n");
         return ERROR_CODE_BAD_PARAMETER;
     }
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
 
     if (initialized == 0)
     {
@@ -493,6 +501,8 @@ int get_volume(int32_t *volume)
     }
 
     pthread_mutex_lock(&lock);
+    LOG("enter!\n");
+
     if (initialized == 0)
     {
         pthread_mutex_unlock(&lock);
@@ -515,8 +525,9 @@ int get_volume(int32_t *volume)
 int set_volume(int32_t volume)
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;
-    LOG("enter!\n");
+
     pthread_mutex_lock(&lock);
+    LOG("enter, vol:%d!\n", volume);
 
     if (initialized == 0)
     {

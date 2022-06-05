@@ -373,7 +373,7 @@ void gst_amltspvsink_set_property(GObject *object, guint property_id,
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(object);
     GstAmltspvsinkPrivate *priv = amltspvsink->priv;
 
-    GST_DEBUG_OBJECT(amltspvsink, "set_property");
+    GST_DEBUG_OBJECT(amltspvsink, "set_property, id:%d!", property_id);
 
     switch (property_id)
     {
@@ -417,7 +417,7 @@ void gst_amltspvsink_get_property(GObject *object, guint property_id,
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(object);
     GstAmltspvsinkPrivate *priv = amltspvsink->priv;
 
-    GST_DEBUG_OBJECT(amltspvsink, "get_property");
+    GST_DEBUG_OBJECT(amltspvsink, "get_property, id:%d!", property_id);
 
     switch (property_id)
     {
@@ -466,7 +466,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     {
     case GST_STATE_CHANGE_NULL_TO_READY:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "null to ready");
         GST_OBJECT_LOCK(amltspvsink);
         if (ERROR_CODE_OK != video_init())
         {
@@ -490,14 +489,12 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "ready to paused");
         /* set async disable when ready to paused. */
         gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspvsink), FALSE);
         break;
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "paused to playing");
         GST_OBJECT_LOCK(amltspvsink);
         if (TRUE == priv->paused)
         {
@@ -509,7 +506,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     }
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "playing to paused");
         GST_OBJECT_LOCK(amltspvsink);
         priv->paused = TRUE;
         video_pause();
@@ -518,7 +514,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     }
     case GST_STATE_CHANGE_PAUSED_TO_READY:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "paused to ready");
         keeposd(TRUE);
         break;
     }
@@ -532,7 +527,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     {
     case GST_STATE_CHANGE_READY_TO_NULL:
     {
-        GST_DEBUG_OBJECT(amltspvsink, "ready to null");
         GST_OBJECT_LOCK(amltspvsink);
         video_stop();
         video_deinit();
@@ -550,13 +544,12 @@ static GstCaps *
 gst_amltspvsink_get_caps(GstBaseSink *sink, GstCaps *filter)
 {
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
-    GstCaps *caps = NULL;
+    GstCaps *caps = gst_pad_get_pad_template_caps(GST_BASE_SINK_PAD(sink));
 
-    GST_DEBUG_OBJECT(amltspvsink, "get_caps");
-    caps = gst_pad_get_pad_template_caps(GST_BASE_SINK_PAD(sink));
+    GST_DEBUG_OBJECT(amltspvsink, "get_caps, filter: %s",
+                     filter ? gst_structure_get_name(gst_caps_get_structure(filter, 0)) : "null");
     if (filter)
     {
-        GST_DEBUG_OBJECT(amltspvsink, "intersecting with filter caps %" GST_PTR_FORMAT, filter);
         GstCaps *intersection = gst_caps_intersect_full(filter, caps, GST_CAPS_INTERSECT_FIRST);
         gst_caps_unref(caps);
         caps = intersection;
@@ -580,10 +573,8 @@ gst_amltspvsink_set_caps(GstBaseSink *sink, GstCaps *caps)
     gint width = 0;
     gint height = 0;
 
-    GST_DEBUG_OBJECT(amltspvsink, "set_caps");
-
     gchar *str = gst_caps_to_string(caps);
-    GST_INFO_OBJECT(amltspvsink, "caps: %s", str);
+    GST_DEBUG_OBJECT(amltspvsink, "caps:%s!", str);
     g_free(str);
 
     structure = gst_caps_get_structure(caps, 0);
@@ -715,7 +706,7 @@ gst_amltspvsink_event(GstBaseSink *sink, GstEvent *event)
     gboolean res = TRUE;
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
 
-    GST_DEBUG_OBJECT(amltspvsink, "event");
+    GST_FIXME_OBJECT(amltspvsink, "event--%s", GST_EVENT_TYPE_NAME(event));
 
     res = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
 
@@ -727,16 +718,11 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
     GstClockTime time = 0;
-    GstClockTime duration = 0;
     guint64 pts = 0;
 
-    GST_DEBUG_OBJECT(amltspvsink, "render");
-
     time = GST_BUFFER_TIMESTAMP(buffer);
-    duration = GST_BUFFER_DURATION(buffer);
     if (GST_BUFFER_PTS_IS_VALID(buffer))
     {
-        GST_DEBUG_OBJECT(amltspvsink, "dts:%llu, pts:%llu, duration:%llu!", GST_BUFFER_DTS(buffer), time, duration);
         pts = time * 9 / 100000;
     }
 
@@ -745,6 +731,7 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
         GstMapInfo map;
 
         gst_buffer_map(buffer, &map, (GstMapFlags)GST_MAP_READ);
+        GST_DEBUG_OBJECT(amltspvsink, "render---size: 0x%zx, vpts:%llu!", map.size, pts);
 
         video_write_frame(map.data, (int32_t)map.size, (uint64_t)pts);
 
@@ -757,8 +744,6 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
         gst_buffer_unmap(buffer, &map);
     }
     GST_OBJECT_UNLOCK(sink);
-
-    GST_DEBUG_OBJECT(amltspvsink, "render end");
 
     return GST_FLOW_OK;
 }

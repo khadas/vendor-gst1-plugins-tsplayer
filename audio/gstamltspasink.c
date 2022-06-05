@@ -363,7 +363,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     switch (transition)
     {
     case GST_STATE_CHANGE_NULL_TO_READY:
-        GST_DEBUG_OBJECT(amltspasink, "null--->ready");
         if (ERROR_CODE_OK != init_adec())
         {
             GST_ERROR_OBJECT(amltspasink, "init_adec failed!");
@@ -372,12 +371,10 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         break;
 
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-        GST_DEBUG_OBJECT(amltspasink, "ready--->paused");
         gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspasink), FALSE);
         break;
 
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
-        GST_DEBUG_OBJECT(amltspasink, "paused--->playing");
         if (TRUE == amltspasink->priv.paused)
         {
             resume_adec();
@@ -388,7 +385,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     {
         GstBaseSink *bsink = GST_BASE_SINK_CAST(amltspasink);
-        GST_DEBUG_OBJECT(amltspasink, "playing--->paused");
         amltspasink->priv.paused = TRUE;
         pause_adec();
         /* To complete transition to paused state in async_enabled mode,
@@ -401,7 +397,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     }
 
     case GST_STATE_CHANGE_PAUSED_TO_READY:
-        GST_DEBUG_OBJECT(amltspasink, "paused--->ready");
         break;
 
     default:
@@ -413,7 +408,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     switch (transition)
     {
     case GST_STATE_CHANGE_READY_TO_NULL:
-        GST_DEBUG_OBJECT(amltspasink, "ready--->null");
         amltspasink->priv.paused = FALSE;
         /* stop_adec() causes failure when audio track switch  */
         // stop_adec();
@@ -435,7 +429,6 @@ gst_amltspasink_get_caps(GstBaseSink *sink, GstCaps *filter)
 
     GST_DEBUG_OBJECT(amltspasink, "get_caps, filter: %s",
                      filter ? gst_structure_get_name(gst_caps_get_structure(filter, 0)) : "null");
-
     if (filter != NULL)
     {
         GstCaps *intersection =
@@ -545,7 +538,7 @@ gst_amltspasink_fixate(GstBaseSink *sink, GstCaps *caps)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "fixate");
+    GST_LOG_OBJECT(amltspasink, "fixate");
     UNUSED(caps);
 
     return NULL;
@@ -557,7 +550,7 @@ gst_amltspasink_activate_pull(GstBaseSink *sink, gboolean active)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "activate_pull");
+    GST_LOG_OBJECT(amltspasink, "activate_pull");
     UNUSED(active);
     return TRUE;
 }
@@ -597,7 +590,7 @@ gst_amltspasink_get_times(GstBaseSink *sink, GstBuffer *buffer,
                           GstClockTime *start, GstClockTime *end)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
-    GST_DEBUG_OBJECT(amltspasink, "get_times");
+    GST_LOG_OBJECT(amltspasink, "get_times");
     UNUSED(buffer);
     *start = GST_CLOCK_TIME_NONE;
     *end = GST_CLOCK_TIME_NONE;
@@ -611,7 +604,7 @@ gst_amltspasink_propose_allocation(GstBaseSink *sink, GstQuery *query)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "propose_allocation");
+    GST_LOG_OBJECT(amltspasink, "propose_allocation");
     UNUSED(query);
 
     return TRUE;
@@ -768,7 +761,7 @@ gst_amltspasink_wait_event(GstBaseSink *sink, GstEvent *event)
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
     GstFlowReturn ret = GST_FLOW_OK;
 
-    GST_DEBUG_OBJECT(amltspasink, "wait_event--%s", GST_EVENT_TYPE_NAME(event));
+    GST_LOG_OBJECT(amltspasink, "wait_event--%s", GST_EVENT_TYPE_NAME(event));
 
     ret = GST_BASE_SINK_CLASS(gst_amltspasink_parent_class)->wait_event(sink, event);
 
@@ -781,7 +774,7 @@ gst_amltspasink_prepare(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "prepare");
+    GST_LOG_OBJECT(amltspasink, "prepare");
     UNUSED(buffer);
 
     return GST_FLOW_OK;
@@ -792,7 +785,7 @@ gst_amltspasink_prepare_list(GstBaseSink *sink, GstBufferList *buffer_list)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "prepare_list");
+    GST_LOG_OBJECT(amltspasink, "prepare_list");
     UNUSED(buffer_list);
 
     return GST_FLOW_OK;
@@ -804,7 +797,7 @@ gst_amltspasink_preroll(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "preroll");
+    GST_LOG_OBJECT(amltspasink, "preroll");
     UNUSED(buffer);
 
     return GST_FLOW_OK;
@@ -848,7 +841,7 @@ gst_amltspasink_render(GstBaseSink *sink, GstBuffer *buffer)
         gst_buffer_map(buffer, &map, GST_MAP_READ);
         gst_get_pts_of_gstbuffer(sink, buffer, &pts);
 
-        GST_DEBUG_OBJECT(amltspasink, "render---size: 0x%zx, pts: %lld",
+        GST_DEBUG_OBJECT(amltspasink, "render---size: 0x%zx, apts: %lld",
                          map.size, pts);
         decode_audio(map.data, map.size, pts);
 
@@ -864,7 +857,7 @@ gst_amltspasink_render_list(GstBaseSink *sink, GstBufferList *buffer_list)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
 
-    GST_DEBUG_OBJECT(amltspasink, "render_list");
+    GST_LOG_OBJECT(amltspasink, "render_list");
     UNUSED(buffer_list);
 
     return GST_FLOW_OK;
