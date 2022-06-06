@@ -28,6 +28,8 @@
 #include "mediasession.h"
 #include "video_adaptor.h"
 
+#include "gstamlsysctl.h"
+
 typedef int BOOL;
 
 #ifndef UNUSED
@@ -47,6 +49,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static BOOL inited = FALSE;
 static BOOL in_deinit = FALSE;
 static BOOL ready = FALSE;
+static BOOL rotate = FALSE;
 /* tsplayer session */
 static am_tsplayer_handle session = 0;
 
@@ -92,6 +95,19 @@ int video_init()
             LOG("AmTsPlayer_setTrickMode failed: %d\n", ret);
             return ERROR_CODE_BASE_ERROR;
         }
+        ret = set_ppmgr_bypass("1");
+        if (0 != ret)
+        {
+            rotate = FALSE;
+            LOG("not support rotate, %d\n", ret);
+        }
+        else
+        {
+            set_vdec_path("ppmgr amvideo");
+            rotate = TRUE;
+            LOG("init rotate success\n");
+        }
+
         inited = TRUE;
     }
     pthread_mutex_unlock(&lock);
@@ -255,6 +271,47 @@ int video_set_region(int32_t x, int32_t y, int32_t w, int32_t h)
     }
     pthread_mutex_unlock(&lock);
 
+    return ERROR_CODE_OK;
+}
+
+int video_set_angle(int32_t angle)
+{
+    int ret = 0;
+    int angle_index = 0;
+
+    pthread_mutex_lock(&lock);
+    if (FALSE == rotate)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("rotate uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+    LOG("enter, angle:%d!\n", angle);
+
+    switch (angle)
+    {
+    case (0):
+        ret = set_ppmgr_bypass("1");
+        break;
+    case (90):
+    case (180):
+    case (270):
+        angle_index = angle / 90;
+        ret = set_ppmgr_bypass("0");
+        ret |= set_ppmgr_angle(angle_index);
+        break;
+    default:
+        ret = -1;
+        break;
+    }
+
+    if (0 != ret)
+    {
+        pthread_mutex_unlock(&lock);
+        return ERROR_CODE_BASE_ERROR;
+    }
+
+    pthread_mutex_unlock(&lock);
     return ERROR_CODE_OK;
 }
 

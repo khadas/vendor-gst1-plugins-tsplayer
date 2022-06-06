@@ -230,3 +230,19 @@ int set_display_axis(int recovery)
     }
     return -1;
 }
+
+int set_vdec_path(char *path)
+{
+    return set_sysfs_str("/sys/class/vdec/vfm_path", path);
+}
+
+int set_ppmgr_bypass(char *enable)
+{
+    return set_sysfs_str("/sys/class/ppmgr/bypass", enable);
+}
+
+int set_ppmgr_angle(int angle)
+{
+    return set_sysfs_int("/sys/class/ppmgr/angle", angle);
+}
+

@@ -88,6 +88,10 @@ struct _GstAmltspvsinkPrivate
     gint32 disp_w;
     gint32 disp_h;
 
+    /* render angle settings */
+    gboolean setangle;
+    gint32 angle;
+
     /* time */
     gint64 pts;
     gint64 duration;
@@ -99,7 +103,8 @@ enum
 {
     PROP_0,
     PROP_WINDOW_SET,
-    PROP_KEEPOSD
+    PROP_KEEPOSD,
+    PROP_RENDER_ANGLE
 };
 
 enum
@@ -333,6 +338,10 @@ gst_amltspvsink_class_init(GstAmltspvsinkClass *klass)
                                     g_param_spec_boolean("keeposd", "keeposd",
                                                          "Whether to keep OSD during playback",
                                                          FALSE, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(G_OBJECT_CLASS(klass), PROP_RENDER_ANGLE,
+                                    g_param_spec_int("render-angle", "render-angle",
+                                                     "Render angle settings:0/90/180/270",
+                                                     0, 270, 0, G_PARAM_READWRITE));
 
     g_signals[SIGNAL_FIRSTFRAME] = g_signal_new("first-video-frame-callback",
                                                 G_TYPE_FROM_CLASS(GST_ELEMENT_CLASS(klass)),
@@ -405,6 +414,24 @@ void gst_amltspvsink_set_property(GObject *object, guint property_id,
         keeposd(priv->keeposd);
         break;
     }
+    case PROP_RENDER_ANGLE:
+    {
+        int angle = g_value_get_int(value);
+        if (0 == angle || 90 == angle || 180 == angle || 270 == angle)
+        {
+            priv->angle = angle;
+            if (ERROR_CODE_OK != video_set_angle(priv->angle))
+            {
+                priv->setangle = TRUE;
+            }
+            GST_INFO("set render angle, %d", angle);
+        }
+        else
+        {
+            GST_ERROR("Bad render angle value, %d", angle);
+        }
+        break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -424,6 +451,11 @@ void gst_amltspvsink_get_property(GObject *object, guint property_id,
     case PROP_KEEPOSD:
     {
         g_value_set_boolean(value, priv->keeposd);
+        break;
+    }
+    case PROP_RENDER_ANGLE:
+    {
+        g_value_set_int(value, priv->angle);
         break;
     }
     default:
@@ -483,6 +515,11 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
         {
             video_set_region(priv->disp_x, priv->disp_y, priv->disp_w, priv->disp_h);
             priv->setwindow = FALSE;
+        }
+        if (TRUE == priv->setangle)
+        {
+            video_set_angle(priv->angle);
+            priv->setangle = FALSE;
         }
         GST_OBJECT_UNLOCK(amltspvsink);
         break;
