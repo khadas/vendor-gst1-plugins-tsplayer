@@ -39,6 +39,7 @@ static int initialized = 0;
 static int in_deinit = 0;
 static int ready = 0;
 static am_tsplayer_handle session = 0;
+static am_tsplayer_audio_codec g_acodec = AV_AUDIO_CODEC_AUTO;
 
 static uint64_t timeout_ms = 10;
 static uint32_t sleep_us = 1000;
@@ -190,12 +191,13 @@ static am_tsplayer_audio_codec codec_char_to_enum(const char *codec)
 
 int configure_adec(const char *codec)
 {
-    am_tsplayer_audio_codec codec_enum = codec_char_to_enum(codec);
-    am_tsplayer_audio_params param = {codec_enum, 0x101, 0};
-    am_tsplayer_result ret = AM_TSPLAYER_OK;
-
     pthread_mutex_lock(&lock);
-    LOG("enter, codec_enum:%d!\n", codec_enum);
+
+    g_acodec = codec_char_to_enum(codec);
+    LOG("enter, acodec:%d!\n", g_acodec);
+
+    am_tsplayer_audio_params param = {g_acodec, 0x101, 0};
+    am_tsplayer_result ret = AM_TSPLAYER_OK;
 
     if (initialized == 0)
     {
@@ -334,6 +336,8 @@ int flush_adec()
     pthread_mutex_lock(&lock);
     LOG("enter!\n");
 
+    am_tsplayer_audio_params param = {g_acodec, 0x101, 0};
+
     if (initialized == 0)
     {
         pthread_mutex_unlock(&lock);
@@ -341,9 +345,9 @@ int flush_adec()
         return ERROR_CODE_INVALID_OPERATION;
     }
 
-    // TODO, api not ok
-    // ret = AmTsPlayer_stopAudioDecoding(session);
-    // ret |= AmTsPlayer_startAudioDecoding(session);
+    ret = AmTsPlayer_stopAudioDecoding(session);
+    ret |= AmTsPlayer_setAudioParams(session, &param);
+    ret |= AmTsPlayer_startAudioDecoding(session);
     if (ret != AM_TSPLAYER_OK)
     {
         pthread_mutex_unlock(&lock);

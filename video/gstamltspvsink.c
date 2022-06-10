@@ -744,7 +744,31 @@ gst_amltspvsink_event(GstBaseSink *sink, GstEvent *event)
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
 
     GST_FIXME_OBJECT(amltspvsink, "event--%s", GST_EVENT_TYPE_NAME(event));
+    switch (GST_EVENT_TYPE(event))
+    {
+    case GST_EVENT_FLUSH_START:
+    {
+        break;
+    }
 
+    case GST_EVENT_FLUSH_STOP:
+    {
+        video_flush();
+        break;
+    }
+
+    case GST_EVENT_SEGMENT:
+    {
+        GstSegment segment;
+
+        gst_event_copy_segment(event, &segment);
+        GST_FIXME_OBJECT(amltspvsink, "rate--%f", segment.rate);
+        break;
+    }
+
+    default:
+        break;
+    }
     res = GST_BASE_SINK_CLASS(parent_class)->event(sink, event);
 
     return res;

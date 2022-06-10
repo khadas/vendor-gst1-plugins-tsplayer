@@ -49,6 +49,8 @@ int video_resume();
 
 int video_stop();
 
+int video_flush();
+
 int video_write_frame(void *data, int32_t size, uint64_t pts);
 
 #endif // __VIDEO_ADAPTOR_H__

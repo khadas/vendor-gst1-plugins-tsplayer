@@ -52,6 +52,7 @@ static BOOL ready = FALSE;
 static BOOL rotate = FALSE;
 /* tsplayer session */
 static am_tsplayer_handle session = 0;
+static am_tsplayer_video_codec g_vcodec = AV_VIDEO_CODEC_AUTO;
 
 int video_init()
 {
@@ -224,12 +225,14 @@ static am_tsplayer_video_codec get_vcodec_enum(const char *codec, int version)
 
 int video_set_codec(const char *codec, int version)
 {
-    am_tsplayer_video_codec codec_enum = get_vcodec_enum(codec, version);
-    am_tsplayer_video_params param = {codec_enum, 0x100};
+    pthread_mutex_lock(&lock);
+
+    g_vcodec = get_vcodec_enum(codec, version);
+    LOG("enter, vcodec:%d!\n", g_vcodec);
+
+    am_tsplayer_video_params param = {g_vcodec, 0x100};
     am_tsplayer_result ret = AM_TSPLAYER_OK;
 
-    pthread_mutex_lock(&lock);
-    LOG("enter, codec_enum:%d!\n", codec_enum);
     if (FALSE == inited)
     {
         pthread_mutex_unlock(&lock);
@@ -414,6 +417,35 @@ int video_stop()
         return ERROR_CODE_BASE_ERROR;
     }
     ready = FALSE;
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
+int video_flush()
+{
+    am_tsplayer_result ret = AM_TSPLAYER_OK;
+
+    pthread_mutex_lock(&lock);
+    LOG("enter!\n");
+    am_tsplayer_video_params param = {g_vcodec, 0x100};
+
+    if (FALSE == inited)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    ret = AmTsPlayer_stopVideoDecoding(session);
+    ret |= AmTsPlayer_setVideoParams(session, &param);
+    ret |= AmTsPlayer_startVideoDecoding(session);
+    if (ret != AM_TSPLAYER_OK)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer flush video failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
     pthread_mutex_unlock(&lock);
 
     return ERROR_CODE_OK;

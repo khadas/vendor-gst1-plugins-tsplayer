@@ -410,7 +410,7 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     case GST_STATE_CHANGE_READY_TO_NULL:
         amltspasink->priv.paused = FALSE;
         /* stop_adec() causes failure when audio track switch  */
-        // stop_adec();
+        stop_adec();
         deinit_adec();
         break;
 
@@ -707,14 +707,14 @@ gst_amltspasink_event(GstBaseSink *sink, GstEvent *event)
     {
     case GST_EVENT_FLUSH_START:
     {
-        mute_audio(1);
+        set_volume(0);
         break;
     }
 
     case GST_EVENT_FLUSH_STOP:
     {
+        set_volume(amltspasink->priv.vol_bak);
         flush_adec();
-        mute_audio(0);
         break;
     }
 
@@ -724,11 +724,15 @@ gst_amltspasink_event(GstBaseSink *sink, GstEvent *event)
 
         gst_event_copy_segment(event, &segment);
         GST_FIXME_OBJECT(amltspasink, "rate--%f", segment.rate);
-        amltspasink->priv.in_fast = FALSE;
         if (1.0 != segment.rate)
         {
-            mute_audio(1);
+            set_volume(0);
             amltspasink->priv.in_fast = TRUE;
+        }
+        else
+        {
+            set_volume(amltspasink->priv.vol_bak);
+            amltspasink->priv.in_fast = FALSE;
         }
         break;
     }
