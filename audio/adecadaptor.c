@@ -66,7 +66,6 @@ int init_adec()
             LOG("create_session failed: %d\n", ret);
             return ret;
         }
-        AmTsPlayer_setSyncMode(session, TS_SYNC_AMASTER);
         initialized = 1;
     }
 
@@ -85,7 +84,6 @@ int deinit_adec()
 
     if (initialized != 0)
     {
-        AmTsPlayer_setSyncMode(session, TS_SYNC_VMASTER);
         ret = release_session();
         if (ret != ERROR_CODE_OK)
         {
@@ -260,6 +258,7 @@ int start_adec()
         return ERROR_CODE_INVALID_OPERATION;
     }
 
+    AmTsPlayer_setSyncMode(session, TS_SYNC_AMASTER);
     ret = AmTsPlayer_startAudioDecoding(session);
     if (ret != AM_TSPLAYER_OK)
     {
