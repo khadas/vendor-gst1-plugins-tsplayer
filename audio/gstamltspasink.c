@@ -371,7 +371,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         break;
 
     case GST_STATE_CHANGE_READY_TO_PAUSED:
-        gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspasink), FALSE);
         break;
 
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
@@ -387,12 +386,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         GstBaseSink *bsink = GST_BASE_SINK_CAST(amltspasink);
         amltspasink->priv.paused = TRUE;
         pause_adec();
-        /* To complete transition to paused state in async_enabled mode,
-         * we need a preroll buffer pushed to the pad.
-         * This is a workaround to avoid the need for preroll buffer. */
-        GST_BASE_SINK_PREROLL_LOCK(bsink);
-        bsink->have_preroll = 1;
-        GST_BASE_SINK_PREROLL_UNLOCK(bsink);
         break;
     }
 
