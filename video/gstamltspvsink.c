@@ -526,8 +526,6 @@ gst_amltspvsink_change_state(GstElement *element, GstStateChange transition)
     }
     case GST_STATE_CHANGE_READY_TO_PAUSED:
     {
-        /* set async disable when ready to paused. */
-        gst_base_sink_set_async_enabled(GST_BASE_SINK_CAST(amltspvsink), FALSE);
         break;
     }
     case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
