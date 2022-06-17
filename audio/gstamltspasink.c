@@ -136,9 +136,9 @@ static GstStaticPadTemplate gst_amltspasink_sink_template =
                                 " ;"
 #endif
                                 "audio/x-raw, "
-                                "format = (string) { S16LE, S16BE }, "
+                                "format = (string) S16LE, "
                                 "layout = (string) interleaved, "
-                                "channels = (int) [ 1, MAX ], "
+                                "channels = 2, "
                                 "rate = 48000"
                                 " ;"));
 
