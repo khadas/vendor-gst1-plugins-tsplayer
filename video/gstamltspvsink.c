@@ -73,6 +73,12 @@ struct _GstAmltspvsinkPrivate
     gboolean paused;
     gboolean received_eos;
     gboolean eos;
+    guint32 seqnum; /* for eos */
+
+    /* eos wating thread */
+    gboolean quit_eos_wait;
+    GThread *eos_wait_thread;
+    guint64 final_vpts;
 
     /* es dimension */
     gint32 es_w;
@@ -166,7 +172,7 @@ G_DEFINE_TYPE_WITH_CODE(GstAmltspvsink, gst_amltspvsink, GST_TYPE_BASE_SINK,
                                                 "debug category for amltspvsink element");
                         G_ADD_PRIVATE(GstAmltspvsink));
 
-/* utils */
+/******************************utils start*****************************/
 static void keeposd(gboolean blank)
 {
     static int fb0_enable = -1;
@@ -296,6 +302,92 @@ static void dump(const char *path, const uint8_t *data, int size, gboolean vp9, 
     fclose(fd);
 }
 #endif
+
+/* wait video eos thread */
+static gpointer video_eos_thread(gpointer data)
+{
+    GstAmltspvsink *amltspvsink = (GstAmltspvsink *)data;
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
+    uint32_t count = 30;    /* 3s timeout */
+    uint64_t last_vpts = 0; /* used to save the last vpts obtained */
+
+    prctl(PR_SET_NAME, "amltspvsink_eos_t");
+    GST_INFO("enter");
+
+    while (!priv->quit_eos_wait)
+    {
+        uint64_t curr_vpts = 0;
+
+        /*
+         * EOS judgment basis:
+         * 1.When priv->final_vpts is less than or equal to curr_vpts;
+         * 2.When curr_vpts equals last_vpts, curr_vpts will not change;
+         */
+        video_get_pts(&curr_vpts);
+        GST_INFO("final_vpts:%llu, curr_vpts:%llu", priv->final_vpts, curr_vpts);
+        if (priv->final_vpts <= curr_vpts || curr_vpts == last_vpts)
+        {
+            priv->eos = TRUE;
+        }
+        last_vpts = curr_vpts;
+
+        /* priv->eos=TRUE or timeout */
+        if (priv->eos || !count)
+        {
+            GstMessage *message;
+
+            if (!count)
+            {
+                GST_WARNING_OBJECT(amltspvsink, "EOS timeout");
+            }
+            /* Posting EOS */
+            GST_WARNING_OBJECT(amltspvsink, "Posting EOS");
+            message = gst_message_new_eos(GST_OBJECT_CAST(amltspvsink));
+            gst_message_set_seqnum(message, priv->seqnum);
+            gst_element_post_message(GST_ELEMENT_CAST(amltspvsink), message);
+            break;
+        }
+
+        g_usleep(100000);
+        count--;
+    }
+
+    GST_INFO("quit");
+    return NULL;
+}
+
+/* start wait video eos thread */
+static int start_eos_thread(GstAmltspvsink *amltspvsink)
+{
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
+
+    priv->eos_wait_thread = g_thread_new("video eos thread", video_eos_thread, amltspvsink);
+    if (!priv->eos_wait_thread)
+    {
+        GST_ERROR_OBJECT(amltspvsink, "fail to create thread");
+        return -1;
+    }
+    return 0;
+}
+
+/* start wait video eos thread */
+static int stop_eos_thread(GstAmltspvsink *amltspvsink)
+{
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
+
+    GST_OBJECT_LOCK(amltspvsink);
+    priv->quit_eos_wait = TRUE;
+    if (priv->eos_wait_thread)
+    {
+        GST_OBJECT_UNLOCK(amltspvsink);
+        g_thread_join(priv->eos_wait_thread);
+        priv->eos_wait_thread = NULL;
+        return 0;
+    }
+    GST_OBJECT_UNLOCK(amltspvsink);
+    return 0;
+}
+/*******************************utils end******************************/
 
 /* gst-api */
 static void
@@ -740,10 +832,26 @@ gst_amltspvsink_event(GstBaseSink *sink, GstEvent *event)
 {
     gboolean res = TRUE;
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
 
     GST_FIXME_OBJECT(amltspvsink, "event--%s", GST_EVENT_TYPE_NAME(event));
     switch (GST_EVENT_TYPE(event))
     {
+    case GST_EVENT_EOS:
+    {
+        gboolean eof = TRUE;
+        GST_OBJECT_LOCK(sink);
+        priv->received_eos = TRUE;
+        priv->eos = FALSE;
+        priv->seqnum = gst_event_get_seqnum(event);
+        GST_WARNING_OBJECT(amltspvsink, "EOS received seqnum %d", priv->seqnum);
+        /* start wait video eos thread */
+        start_eos_thread(amltspvsink);
+        /* notify tsplayer EOF */
+        video_set_param(AM_TSPLAYER_KEY_SET_STREAM_EOF, &eof);
+        GST_OBJECT_UNLOCK(sink);
+        return TRUE;
+    }
     case GST_EVENT_FLUSH_START:
     {
         break;
@@ -776,6 +884,7 @@ static GstFlowReturn
 gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(sink);
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
     GstClockTime time = 0;
     guint64 pts = 0;
 
@@ -784,6 +893,8 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
     {
         pts = time * 9 / 100000;
     }
+    /* staging max vpts */
+    priv->final_vpts = (pts > priv->final_vpts) ? pts : priv->final_vpts;
 
     GST_OBJECT_LOCK(sink);
     {

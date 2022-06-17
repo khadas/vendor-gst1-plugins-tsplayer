@@ -554,6 +554,30 @@ int set_volume(int32_t volume)
     return ERROR_CODE_OK;
 }
 
+int get_audio_pts(uint64_t *apts)
+{
+    am_tsplayer_result ret = AM_TSPLAYER_OK;
+
+    pthread_mutex_lock(&lock);
+    if (initialized == 0)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    ret = AmTsPlayer_getPts(session, TS_STREAM_AUDIO, apts);
+    if (ret != AM_TSPLAYER_OK)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer_getPts failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
 // #ifdef __cplusplus
 // }
 // #endif

@@ -318,6 +318,55 @@ int video_set_angle(int32_t angle)
     return ERROR_CODE_OK;
 }
 
+int video_set_param(am_tsplayer_parameter type, void* arg)
+{
+    int ret = 0;
+
+    pthread_mutex_lock(&lock);
+    LOG("enter, type:%d!\n", type);
+    if (FALSE == inited)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    ret = AmTsPlayer_setParams(session, type, arg);
+    if (AM_TSPLAYER_OK != ret)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer_setParams failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
+int video_get_pts(uint64_t *vpts)
+{
+    am_tsplayer_result ret = AM_TSPLAYER_OK;
+
+    pthread_mutex_lock(&lock);
+    if (FALSE == inited)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    ret = AmTsPlayer_getPts(session, TS_STREAM_VIDEO, vpts);
+    if (ret != AM_TSPLAYER_OK)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer_getPts failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
 int video_start()
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;

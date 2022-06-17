@@ -38,6 +38,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbasesink.h>
 
+#include <sys/prctl.h>
 #include "adecadaptor.h"
 #include "gstamltspasink.h"
 
@@ -148,6 +149,93 @@ G_DEFINE_TYPE_WITH_CODE(GstAmltspasink, gst_amltspasink, GST_TYPE_BASE_SINK,
                         GST_DEBUG_CATEGORY_INIT(gst_amltspasink_debug_category, "amltspasink", 0,
                                                 "debug category for amltspasink element"));
 
+/******************************utils start*****************************/
+/* wait audio eos thread */
+static gpointer audio_eos_thread(gpointer data)
+{
+    GstAmltspasink *amltspasink = (GstAmltspasink *)data;
+    GstAmltspasinkPrivate *priv = &amltspasink->priv;
+    uint32_t count = 30;    /* 3s timeout */
+    uint64_t last_apts = 0; /* used to save the last vpts obtained */
+
+    prctl(PR_SET_NAME, "amltspasink_eos_t");
+    GST_INFO("enter");
+
+    while (!priv->quit_eos_wait)
+    {
+        uint64_t curr_apts = 0;
+
+        /*
+         * EOS judgment basis:
+         * 1.When priv->final_apts is less than or equal to curr_apts;
+         * 2.When curr_apts equals last_apts, curr_apts will not change;
+         */
+        get_audio_pts(&curr_apts);
+        GST_INFO("final_apts:%llu, curr_apts:%llu", priv->final_apts, curr_apts);
+        if (priv->final_apts <= curr_apts || curr_apts == last_apts)
+        {
+            priv->eos = TRUE;
+        }
+        last_apts = curr_apts;
+
+        /* priv->eos=TRUE or timeout */
+        if (priv->eos || !count)
+        {
+            GstMessage *message;
+
+            if (!count)
+            {
+                GST_WARNING_OBJECT(amltspasink, "EOS timeout");
+            }
+            GST_WARNING_OBJECT(amltspasink, "Posting EOS");
+            message = gst_message_new_eos(GST_OBJECT_CAST(amltspasink));
+            gst_message_set_seqnum(message, priv->seqnum);
+            gst_element_post_message(GST_ELEMENT_CAST(amltspasink), message);
+            break;
+        }
+
+        g_usleep(100000);
+        count--;
+    }
+
+    GST_INFO("quit");
+    return NULL;
+}
+
+/* start wait audio eos thread */
+static int start_eos_thread(GstAmltspasink *amltspasink)
+{
+    GstAmltspasinkPrivate *priv = &amltspasink->priv;
+
+    priv->eos_wait_thread = g_thread_new("audio eos thread", audio_eos_thread, amltspasink);
+    if (!priv->eos_wait_thread)
+    {
+        GST_ERROR_OBJECT(amltspasink, "fail to create thread");
+        return -1;
+    }
+    return 0;
+}
+
+/* stop wait audio eos thread */
+static int stop_eos_thread(GstAmltspasink *amltspasink)
+{
+    GstAmltspasinkPrivate *priv = &amltspasink->priv;
+
+    GST_OBJECT_LOCK(amltspasink);
+    priv->quit_eos_wait = TRUE;
+    if (priv->eos_wait_thread)
+    {
+        GST_OBJECT_UNLOCK(amltspasink);
+        g_thread_join(priv->eos_wait_thread);
+        priv->eos_wait_thread = NULL;
+        return 0;
+    }
+    GST_OBJECT_UNLOCK(amltspasink);
+    return 0;
+}
+/*******************************utils end******************************/
+
+/* gst api */
 static void
 gst_amltspasink_class_init(GstAmltspasinkClass *klass)
 {
@@ -383,7 +471,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
 
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     {
-        GstBaseSink *bsink = GST_BASE_SINK_CAST(amltspasink);
         amltspasink->priv.paused = TRUE;
         pause_adec();
         break;
@@ -692,12 +779,22 @@ static gboolean
 gst_amltspasink_event(GstBaseSink *sink, GstEvent *event)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
+    GstAmltspasinkPrivate *priv = &amltspasink->priv;
     gboolean ret = FALSE;
 
     GST_FIXME_OBJECT(amltspasink, "event--%s", GST_EVENT_TYPE_NAME(event));
 
     switch (GST_EVENT_TYPE(event))
     {
+    case GST_EVENT_EOS:
+        GST_OBJECT_LOCK(sink);
+        priv->received_eos = TRUE;
+        priv->eos = FALSE;
+        priv->seqnum = gst_event_get_seqnum(event);
+        GST_WARNING_OBJECT(amltspasink, "EOS received seqnum %d", priv->seqnum);
+        start_eos_thread(amltspasink);
+        GST_OBJECT_UNLOCK(sink);
+        return TRUE;
     case GST_EVENT_FLUSH_START:
     {
         set_volume(0);
@@ -829,14 +926,16 @@ static GstFlowReturn
 gst_amltspasink_render(GstBaseSink *sink, GstBuffer *buffer)
 {
     GstAmltspasink *amltspasink = GST_AMLTSPASINK(sink);
+    GstAmltspasinkPrivate *priv = &(amltspasink->priv);
 
     /* Disable decode_audio when fast forward */
-    if (FALSE == amltspasink->priv.in_fast)
+    if (FALSE == priv->in_fast)
     {
         GstMapInfo map;
         GstClockTime pts;
         gst_buffer_map(buffer, &map, GST_MAP_READ);
         gst_get_pts_of_gstbuffer(sink, buffer, &pts);
+        priv->final_apts = pts;
 
         GST_DEBUG_OBJECT(amltspasink, "render---size: 0x%zx, apts: %lld",
                          map.size, pts);

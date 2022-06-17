@@ -52,6 +52,8 @@ int get_playing_position(int64_t *position_us);
 int get_volume(int32_t *volume);
 int set_volume(int32_t volume);
 
+int get_audio_pts(uint64_t *apts);
+
 // #ifdef __cplusplus
 // }
 // #endif

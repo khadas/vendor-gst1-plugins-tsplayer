@@ -36,16 +36,22 @@ typedef struct _GstAmltspasinkClass GstAmltspasinkClass;
 
 typedef struct _GstAmltspasinkPrivate
 {
-    gboolean paused; /* is it paused.true:paused,false:non paused */
+    gboolean paused;       /* is it paused.true:paused,false:non paused */
     gboolean received_eos; /* is it received eos. */
-    gboolean eos; /* is it eos state */
+    gboolean eos;          /* is it eos state */
+    guint32 seqnum;        /* for eos */
 
-    gint vol; /* audio volume.  */
+    /* eos wating thread */
+    gboolean quit_eos_wait;
+    GThread *eos_wait_thread;
+    guint64 final_apts; /* save final audio pts */
+
+    gint vol;             /* audio volume.  */
     gboolean vol_pending; /* set volume pending flag  */
 
-    gboolean mute; /* mute */
+    gboolean mute;         /* mute */
     gboolean mute_pending; /* set mute pending flag */
-    gint vol_bak; /* backup volume before mute*/
+    gint vol_bak;          /* backup volume before mute*/
 
     gboolean in_fast;
 } GstAmltspasinkPrivate;

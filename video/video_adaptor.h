@@ -41,6 +41,10 @@ int video_set_region(int32_t x, int32_t y, int32_t w, int32_t h);
 
 int video_set_angle(int32_t angle);
 
+int video_set_param(am_tsplayer_parameter type, void* arg);
+
+int video_get_pts(uint64_t *vpts);
+
 int video_start();
 
 int video_pause();
