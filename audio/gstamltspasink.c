@@ -246,6 +246,7 @@ void gst_amltspasink_set_property(GObject *object, guint property_id,
         volume = (int32_t)g_value_get_int(value);
         GST_FIXME_OBJECT(amltspasink, "set_property, volume: %d", volume);
         amltspasink->priv.vol = volume;
+        amltspasink->priv.vol_bak = volume;
         if (ERROR_CODE_OK != set_volume(volume))
         {
             amltspasink->priv.vol_pending = TRUE;
