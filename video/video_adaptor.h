@@ -43,6 +43,8 @@ int video_set_angle(int32_t angle);
 
 int video_set_param(am_tsplayer_parameter type, void* arg);
 
+int video_set_rate(float rate);
+
 int video_get_pts(uint64_t *vpts);
 
 int video_start();

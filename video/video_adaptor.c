@@ -343,6 +343,43 @@ int video_set_param(am_tsplayer_parameter type, void* arg)
     return ERROR_CODE_OK;
 }
 
+/*
+ * Support slow playback:[0.0,1.0)
+ * Support fast playback:(1.0,2.0]
+ * Resume normal playback:1.0
+ */
+int video_set_rate(float rate)
+{
+    int ret = 0;
+
+    pthread_mutex_lock(&lock);
+    LOG("enter, rate:%f!\n", rate);
+    if (FALSE == inited)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("uninitialized!\n");
+        return ERROR_CODE_INVALID_OPERATION;
+    }
+
+    if (1.0 == rate)
+    {
+        ret = AmTsPlayer_stopFast(session);
+    }
+    else
+    {
+        ret = AmTsPlayer_startFast(session, rate);
+    }
+    if (AM_TSPLAYER_OK != ret)
+    {
+        pthread_mutex_unlock(&lock);
+        LOG("AmTsPlayer_startFast or AmTsPlayer_stopFast failed: %d\n", ret);
+        return ERROR_CODE_BASE_ERROR;
+    }
+    pthread_mutex_unlock(&lock);
+
+    return ERROR_CODE_OK;
+}
+
 int video_get_pts(uint64_t *vpts)
 {
     am_tsplayer_result ret = AM_TSPLAYER_OK;

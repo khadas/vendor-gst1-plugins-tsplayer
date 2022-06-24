@@ -1122,6 +1122,7 @@ gst_amltspvsink_event(GstBaseSink *sink, GstEvent *event)
 
         gst_event_copy_segment(event, &segment);
         GST_FIXME_OBJECT(amltspvsink, "rate--%f", segment.rate);
+        video_set_rate(segment.rate);
         break;
     }
 
