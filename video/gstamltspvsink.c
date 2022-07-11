@@ -47,11 +47,22 @@
 #include "video_adaptor.h"
 #include "gstamlsysctl.h"
 
+#define GST_USE_UNSTABLE_API 1
+#include <gst/codecparsers/gsth264parser.h>
+#include <gst/codecparsers/gsth265parser.h>
+
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
 #endif
 
 #define DUMP_TO_FILE 1
+
+#define SAVE_FREE(p) \
+    if (p)           \
+    {                \
+        free(p);     \
+        (p) = NULL;  \
+    }
 
 GST_DEBUG_CATEGORY_STATIC(gst_amltspvsink_debug_category);
 #define GST_CAT_DEFAULT gst_amltspvsink_debug_category
@@ -63,6 +74,24 @@ GST_DEBUG_CATEGORY_STATIC(gst_amltspvsink_debug_category);
     "height = (int) [ 16, 1920 ] "
 
 #define PTS_90K 90000
+
+typedef enum
+{
+    ED_TYPE_INVALID = -1,
+    ED_TYPE_H264 = 0,
+    ED_TYPE_H265
+} eExtraDataType;
+
+/* h264/h265 extradata struct. */
+typedef struct _ExtraData
+{
+    char *vps;    /* vps ptr, only for h265 */
+    int vps_size; /* vps nal size, only for h265 */
+    char *sps;    /* sps ptr, for h264/h265 */
+    int sps_size;
+    char *pps; /* pps ptr, for h264/h265 */
+    int pps_size;
+} ExtraData;
 
 /* private */
 struct _GstAmltspvsinkPrivate
@@ -103,6 +132,12 @@ struct _GstAmltspvsinkPrivate
     gint64 duration;
 
     gboolean keeposd;
+
+    /* extradata inject */
+    eExtraDataType extradata_type;
+    gboolean extradata_got;
+    ExtraData extradata;
+    gboolean extradata_injected;
 };
 
 enum
@@ -283,6 +318,9 @@ static void dump(const char *path, const uint8_t *data, int size, gboolean vp9, 
     uint8_t frame_header[12] = {0};
     FILE *fd;
 
+    if (!data)
+        return;
+
     sprintf(name, "%s%d.dat", path, 0);
     fd = fopen(name, "ab");
 
@@ -387,6 +425,204 @@ static int stop_eos_thread(GstAmltspvsink *amltspvsink)
     GST_OBJECT_UNLOCK(amltspvsink);
     return 0;
 }
+
+/* h264/265 extradata parser, like vps/sps/pps */
+static int h264_extradata_parser(const unsigned char *in_buf, int in_size, ExtraData *extra_data)
+{
+    GstH264ParserResult res = GST_H264_PARSER_OK;
+    GstH264NalParser *h264parser = gst_h264_nal_parser_new();
+    unsigned int offset = 0;
+
+    do
+    {
+        GstH264NalUnit nal = {0};
+        res = gst_h264_parser_identify_nalu(h264parser,
+                                            in_buf,
+                                            offset,
+                                            in_size,
+                                            &nal);
+        offset = nal.offset + nal.size;
+        GST_DEBUG("nal info, type:%d, size:%d, offset:%d, sc_offset:%d; res:%d!",
+                  nal.type, nal.size, nal.offset, nal.sc_offset, res);
+
+        if ((GST_H264_PARSER_OK != res) && (GST_H264_PARSER_NO_NAL_END != res))
+        {
+            GST_ERROR("h264 nal parse error!");
+            goto error;
+        }
+
+        switch (nal.type)
+        {
+        case (GST_H264_NAL_SPS):
+        {
+            if (NULL == extra_data->sps)
+            {
+                extra_data->sps_size = nal.size + nal.offset - nal.sc_offset;
+                extra_data->sps = malloc(extra_data->sps_size);
+                if (NULL == extra_data->sps)
+                    goto error;
+                memcpy(extra_data->sps, nal.data + nal.sc_offset, extra_data->sps_size);
+            }
+            break;
+        }
+        case (GST_H264_NAL_PPS):
+        {
+            if (NULL == extra_data->pps)
+            {
+                extra_data->pps_size = nal.size + nal.offset - nal.sc_offset;
+                extra_data->pps = malloc(extra_data->pps_size);
+                if (NULL == extra_data->pps)
+                    goto error;
+                memcpy(extra_data->pps, nal.data + nal.sc_offset, extra_data->pps_size);
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    } while (GST_H264_PARSER_NO_NAL_END != res);
+
+    if ((NULL == extra_data->sps) || (NULL == extra_data->pps))
+        goto error;
+
+    GST_DEBUG("h264 extradata parse finish!");
+    gst_h264_nal_parser_free(h264parser);
+    return 0;
+
+error:
+    GST_ERROR("h264 extradata parse error!");
+    gst_h264_nal_parser_free(h264parser);
+    SAVE_FREE(extra_data->sps);
+    SAVE_FREE(extra_data->pps);
+    return -1;
+}
+
+static int h265_extradata_parser(const unsigned char *in_buf, int in_size, ExtraData *extra_data)
+{
+    GstH265ParserResult res = GST_H265_PARSER_OK;
+    GstH265Parser *h265parser = gst_h265_parser_new();
+    unsigned int offset = 0;
+
+    do
+    {
+        GstH265NalUnit nal = {0};
+        res = gst_h265_parser_identify_nalu(h265parser,
+                                            in_buf,
+                                            offset,
+                                            in_size,
+                                            &nal);
+        offset = nal.offset + nal.size;
+        GST_DEBUG("nal info, type:%d, size:%d, offset:%d, sc_offset:%d; res:%d!",
+                  nal.type, nal.size, nal.offset, nal.sc_offset, res);
+
+        if ((GST_H265_PARSER_OK != res) && (GST_H265_PARSER_NO_NAL_END != res))
+        {
+            GST_ERROR("h265 nal parse error!");
+            goto error;
+        }
+
+        switch (nal.type)
+        {
+        case (GST_H265_NAL_VPS):
+        {
+            if (NULL == extra_data->vps)
+            {
+                extra_data->vps_size = nal.size + nal.offset - nal.sc_offset;
+                extra_data->vps = malloc(extra_data->vps_size);
+                if (NULL == extra_data->vps)
+                    goto error;
+                memcpy(extra_data->vps, nal.data + nal.sc_offset, extra_data->vps_size);
+            }
+            break;
+        }
+        case (GST_H265_NAL_SPS):
+        {
+            if (NULL == extra_data->sps)
+            {
+                extra_data->sps_size = nal.size + nal.offset - nal.sc_offset;
+                extra_data->sps = malloc(extra_data->sps_size);
+                if (NULL == extra_data->sps)
+                    goto error;
+                memcpy(extra_data->sps, nal.data + nal.sc_offset, extra_data->sps_size);
+            }
+            break;
+        }
+        case (GST_H265_NAL_PPS):
+        {
+            if (NULL == extra_data->pps)
+            {
+                extra_data->pps_size = nal.size + nal.offset - nal.sc_offset;
+                extra_data->pps = malloc(extra_data->pps_size);
+                if (NULL == extra_data->pps)
+                    goto error;
+                memcpy(extra_data->pps, nal.data + nal.sc_offset, extra_data->pps_size);
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    } while (GST_H265_PARSER_NO_NAL_END != res);
+
+    if ((NULL == extra_data->vps) || (NULL == extra_data->sps) || (NULL == extra_data->pps))
+        goto error;
+
+    GST_DEBUG("h265 extradata parse finish!");
+    gst_h265_parser_free(h265parser);
+    return 0;
+
+error:
+    GST_ERROR("h265 extradata parse error!");
+    gst_h265_parser_free(h265parser);
+    SAVE_FREE(extra_data->vps);
+    SAVE_FREE(extra_data->sps);
+    SAVE_FREE(extra_data->pps);
+    return -1;
+}
+
+static int extradata_get(eExtraDataType type, const unsigned char *in_buf, int in_size, ExtraData *extra_data)
+{
+    int ret = 0;
+    ExtraData tmp_extra_data = {0};
+
+    if ((ED_TYPE_INVALID == type) || (NULL == in_buf) || (0 >= in_size) || (NULL == extra_data))
+    {
+        return -1;
+    }
+
+    if (ED_TYPE_H264 == type)
+    {
+        ret = h264_extradata_parser(in_buf, in_size, &tmp_extra_data);
+    }
+    else
+    {
+        ret = h265_extradata_parser(in_buf, in_size, &tmp_extra_data);
+    }
+
+    if (0 == ret)
+    {
+        SAVE_FREE(extra_data->vps);
+        SAVE_FREE(extra_data->sps);
+        SAVE_FREE(extra_data->pps);
+        memcpy(extra_data, &tmp_extra_data, sizeof(ExtraData));
+    }
+
+    return ret;
+}
+
+static void extradata_release(ExtraData *extra_data)
+{
+    if (NULL == extra_data)
+    {
+        return;
+    }
+
+    SAVE_FREE(extra_data->vps);
+    SAVE_FREE(extra_data->sps);
+    SAVE_FREE(extra_data->pps);
+
+    return;
+}
 /*******************************utils end******************************/
 
 /* gst-api */
@@ -457,6 +693,7 @@ gst_amltspvsink_init(GstAmltspvsink *amltspvsink)
 
     GST_FIXME_OBJECT(amltspvsink, "build time:%s,%s", __DATE__, __TIME__);
 
+    memset(priv, 0, sizeof(GstAmltspvsinkPrivate));
     amltspvsink->priv = priv;
     priv->sink = amltspvsink;
     priv->paused = FALSE;
@@ -464,6 +701,9 @@ gst_amltspvsink_init(GstAmltspvsink *amltspvsink)
     priv->eos = FALSE;
     priv->setwindow = FALSE;
     priv->keeposd = FALSE;
+    priv->extradata_type = ED_TYPE_INVALID;
+    priv->extradata_got = FALSE;
+    priv->extradata_injected = TRUE;
 
     return;
 }
@@ -570,10 +810,18 @@ void gst_amltspvsink_dispose(GObject *object)
 void gst_amltspvsink_finalize(GObject *object)
 {
     GstAmltspvsink *amltspvsink = GST_AMLTSPVSINK(object);
+    GstAmltspvsinkPrivate *priv = amltspvsink->priv;
 
     GST_DEBUG_OBJECT(amltspvsink, "finalize");
 
-    /* clean up object here */
+    /* clean up object here */i
+    GST_OBJECT_LOCK(sink);
+    if ((ED_TYPE_INVALID != priv->extradata_type) && (TRUE == priv->extradata_got))
+    {
+        GST_INFO("release extradata!");
+        extradata_release(&priv->extradata);
+    }
+    GST_OBJECT_UNLOCK(sink);
 
     G_OBJECT_CLASS(gst_amltspvsink_parent_class)->finalize(object);
 }
@@ -725,6 +973,7 @@ gst_amltspvsink_set_caps(GstBaseSink *sink, GstCaps *caps)
                 GST_ERROR_OBJECT(amltspvsink, "aligment:%s!", alignment);
                 goto error;
             }
+            priv->extradata_type = ED_TYPE_H264;
         }
     }
     else if (len == 12 && !strncmp("video/x-h265", mime, len))
@@ -738,6 +987,7 @@ gst_amltspvsink_set_caps(GstBaseSink *sink, GstCaps *caps)
                 GST_ERROR_OBJECT(amltspvsink, "aligment:%s!", alignment);
                 goto error;
             }
+            priv->extradata_type = ED_TYPE_H265;
         }
     }
     else if (len == 10 && !strncmp("video/mpeg", mime, len))
@@ -860,6 +1110,9 @@ gst_amltspvsink_event(GstBaseSink *sink, GstEvent *event)
     case GST_EVENT_FLUSH_STOP:
     {
         video_flush();
+        GST_OBJECT_LOCK(sink);
+        priv->extradata_injected = FALSE;
+        GST_OBJECT_UNLOCK(sink);
         break;
     }
 
@@ -902,6 +1155,37 @@ gst_amltspvsink_render(GstBaseSink *sink, GstBuffer *buffer)
 
         gst_buffer_map(buffer, &map, (GstMapFlags)GST_MAP_READ);
         GST_DEBUG_OBJECT(amltspvsink, "render---size: 0x%zx, vpts:%llu!", map.size, pts);
+
+        /* get extradata when "priv->extradata_type!=ED_TYPE_INVALID" and "priv->extradata_got==false" */
+        if ((ED_TYPE_INVALID != priv->extradata_type) && (FALSE == priv->extradata_got))
+        {
+            if (0 == extradata_get(priv->extradata_type, (const unsigned char *)map.data, map.size, &priv->extradata))
+            {
+                GST_INFO("got extradata!");
+                priv->extradata_got = TRUE;
+            }
+        }
+        /* inject extradata when "priv->extradata_injected==false" */
+        if (priv->extradata_got && !priv->extradata_injected)
+        {
+            GST_INFO("injected extradata!");
+            priv->extradata_injected = TRUE;
+            if (priv->extradata.vps) /* only for h265 */
+                video_write_frame(priv->extradata.vps, priv->extradata.vps_size, (uint64_t)pts);
+            if (priv->extradata.sps)
+                video_write_frame(priv->extradata.sps, priv->extradata.sps_size, (uint64_t)pts);
+            if (priv->extradata.pps)
+                video_write_frame(priv->extradata.pps, priv->extradata.pps_size, (uint64_t)pts);
+#ifdef DUMP_TO_FILE
+            if (getenv("AMLTSPVSINK_ES_DUMP"))
+            {
+                dump("/tmp/ss", (const uint8_t *)priv->extradata.vps, priv->extradata.vps_size, FALSE, 0);
+                dump("/tmp/ss", (const uint8_t *)priv->extradata.sps, priv->extradata.sps_size, FALSE, 0);
+                dump("/tmp/ss", (const uint8_t *)priv->extradata.pps, priv->extradata.pps_size, FALSE, 0);
+                dump("/tmp/ss", map.data, map.size, FALSE, 0);
+            }
+#endif
+        }
 
         video_write_frame(map.data, (int32_t)map.size, (uint64_t)pts);
 

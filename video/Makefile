@@ -8,11 +8,11 @@ SRCS=$(wildcard *.c)
 OBJS=$(patsubst %c, %o, $(SRCS))
 
 CFLAGS = -Wall -Wextra -fPIC
-CFLAGS += $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0)
+CFLAGS += $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-base-1.0 gstreamer-plugins-bad-1.0)
 CFLAGS += -I$(STAGING_DIR)/usr/include/
 CFLAGS += $(EXT_CFLAGS)
 
-LDFLAGS += $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0)
+LDFLAGS += $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-base-1.0 gstreamer-plugins-bad-1.0) -lgstcodecparsers-1.0
 LDFLAGS += -L$(STAGING_DIR)/usr/lib/ -lmediahal_tsplayer
 LDFLAGS += -L$(STAGING_DIR)/usr/lib/ -lmediasession
 LDFLAGS += $(EXT_LDFLAGS)
