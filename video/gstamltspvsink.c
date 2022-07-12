@@ -814,14 +814,14 @@ void gst_amltspvsink_finalize(GObject *object)
 
     GST_DEBUG_OBJECT(amltspvsink, "finalize");
 
-    /* clean up object here */i
-    GST_OBJECT_LOCK(sink);
+    /* clean up object here */
+    GST_OBJECT_LOCK(amltspvsink);
     if ((ED_TYPE_INVALID != priv->extradata_type) && (TRUE == priv->extradata_got))
     {
         GST_INFO("release extradata!");
         extradata_release(&priv->extradata);
     }
-    GST_OBJECT_UNLOCK(sink);
+    GST_OBJECT_UNLOCK(amltspvsink);
 
     G_OBJECT_CLASS(gst_amltspvsink_parent_class)->finalize(object);
 }
