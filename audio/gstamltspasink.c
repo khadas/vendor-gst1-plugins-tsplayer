@@ -470,6 +470,14 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
         amltspasink->priv.paused = FALSE;
         break;
 
+    default:
+        break;
+    }
+
+    ret = GST_ELEMENT_CLASS(gst_amltspasink_parent_class)->change_state(element, transition);
+
+    switch (transition)
+    {
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
     {
         amltspasink->priv.paused = TRUE;
@@ -480,14 +488,6 @@ gst_amltspasink_change_state(GstElement *element, GstStateChange transition)
     case GST_STATE_CHANGE_PAUSED_TO_READY:
         break;
 
-    default:
-        break;
-    }
-
-    ret = GST_ELEMENT_CLASS(gst_amltspasink_parent_class)->change_state(element, transition);
-
-    switch (transition)
-    {
     case GST_STATE_CHANGE_READY_TO_NULL:
         amltspasink->priv.paused = FALSE;
         /* stop_adec() causes failure when audio track switch  */
